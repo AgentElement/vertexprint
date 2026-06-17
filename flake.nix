@@ -19,6 +19,7 @@
           pkgs.cairo
           pkgs.openscad
           pkgs.python3
+          pkgs.nodejs
         ];
 
         nativeBuildInputs = with pkgs; [

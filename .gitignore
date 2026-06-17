@@ -1,3 +1,10 @@
 *.stl
 !data/*.stl
 __pycache__
+out/
+
+node_modules
+
+# Added by cargo
+
+/target
