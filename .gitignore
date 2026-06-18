@@ -4,6 +4,7 @@ __pycache__
 out/
 
 node_modules
+a.*
 
 # Added by cargo
 
