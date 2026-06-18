@@ -1,5 +1,5 @@
 <!doctype html>
-<html>
+<html class="overflow-hidden bg-v-bg">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,8 +7,11 @@
 </head>
 
 <body>
-
-<script type="module" src="a.js"></script>
-
+    <div id="ui" class="h-screen w-full divide-x-2 divide-v-border">
+          <aside class="fixed top-0 left-0 w-128 h-full bg-v-dark text-v-fg z-10">
+            <div class="p-6">Fixed Sidebar</div>
+          </aside>
+        <script type="module" src="a.js"></script>
+    </div>
 </body>
 </html>

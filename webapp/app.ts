@@ -2,28 +2,40 @@ import * as THREE from "three";
 import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 
-const WHITE = 0xffffff;
-const GRAY = 0x404040;
-const BLUE = 0x6699cc;
+function cssVar(name: string): number {
+  const hex = getComputedStyle(document.documentElement)
+    .getPropertyValue(name)
+    .trim();
+  return parseInt(hex.replace("#", ""), 16);
+}
+
+const V_FG = cssVar("--color-v-fg");
+const V_BG = cssVar("--color-v-bg");
+const V_DARK = cssVar("--color-v-dark");
+const V_BORDER = cssVar("--color-v-border");
+const V_BLUE = cssVar("--color-v-blue");
 
 async function init() {
   const output = await fetch("cube.stl").then((res) => res.arrayBuffer());
 
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(WHITE);
+  scene.background = new THREE.Color(V_BG);
 
   const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
   camera.position.set(20, 15, 20);
 
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
-  document.body.append(renderer.domElement);
+  renderer.domElement.style.position = "fixed";
+  renderer.domElement.style.top = "0";
+  renderer.domElement.style.left = "0";
+  document.body.prepend(renderer.domElement);
 
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.update();
 
-  scene.add(new THREE.AmbientLight(GRAY, 2));
-  const dirLight = new THREE.DirectionalLight(WHITE, 2);
+  scene.add(new THREE.AmbientLight(V_FG, 2));
+  const dirLight = new THREE.DirectionalLight(V_FG, 2);
   dirLight.position.set(10, 20, 15);
   scene.add(dirLight);
 
@@ -33,7 +45,7 @@ async function init() {
   geometry.computeVertexNormals();
 
   const material = new THREE.MeshStandardMaterial({
-    color: BLUE,
+    color: V_BLUE,
     flatShading: false,
   });
   const mesh = new THREE.Mesh(geometry, material);
