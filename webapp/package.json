@@ -1,0 +1,12 @@
+{
+  "dependencies": {
+    "@tailwindcss/cli": "^4.3.1",
+    "esbuild": "^0.28.1",
+    "tailwindcss": "^4.3.1",
+    "three": "^0.184.0",
+    "typescript": "^6.0.3"
+  },
+  "scripts": {
+    "build": "esbuild app.ts --bundle --outfile=a.js --format=esm --target=es2022 --minify --tree-shaking=true --loader:.stl=file && tailwindcss -i style.css -o a.css --minify"
+  }
+}

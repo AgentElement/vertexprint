@@ -1,10 +1,17 @@
 {
   "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
     "noImplicitAny": true,
     "removeComments": true,
     "preserveConstEnums": true,
-    "sourceMap": true
+    // "sourceMap": true,
+    "skipLibCheck": true,
+    "strict": false,
+    "outDir": ".",
+    "allowImportingTsExtensions": false
   },
-  "include": ["**/*"],
-  "exclude": ["**/*.spec.ts"]
+  "include": ["**/*.ts"],
+  "exclude": ["**/*.spec.ts", "**/*.js", "node_modules", "openscad", "three"]
 }

@@ -1,6 +1,0 @@
-{
-  "dependencies": {
-    "three": "^0.184.0",
-    "typescript": "^6.0.3"
-  }
-}

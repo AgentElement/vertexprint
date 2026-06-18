@@ -1,26 +1,56 @@
-import OpenSCAD from "./openscad/openscad.js";
-const three = require('three')
+import * as THREE from "three";
+import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 
-const filename = "cube.stl";
+const WHITE = 0xffffff;
+const GRAY = 0x404040;
+const BLUE = 0x6699cc;
 
-// Instantiate the application
-const instance = await OpenSCAD({noInitialRun: true});
+async function init() {
+  const output = await fetch("cube.stl").then((res) => res.arrayBuffer());
 
-// Write a file to the filesystem
-instance.FS.writeFile("/input.scad", `cube(10);`); // OpenSCAD script to generate a 10mm cube
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(WHITE);
 
-// Run like a command-line program with arguments
-instance.callMain(["/input.scad", "--enable=manifold", "-o", filename]); // manifold is faster at rendering
+  const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+  camera.position.set(20, 15, 20);
 
-// Read the output 3D-model into a JS byte-array
-const output = instance.FS.readFile("/"+filename);
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  document.body.append(renderer.domElement);
 
-// Generate a link to output 3D-model and download the output STL file
-const link = document.createElement("a");
-link.href = URL.createObjectURL(
-new Blob([output], { type: "application/octet-stream" }), null);
-link.download = filename;
-document.body.append(link);
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.update();
 
+  scene.add(new THREE.AmbientLight(GRAY, 2));
+  const dirLight = new THREE.DirectionalLight(WHITE, 2);
+  dirLight.position.set(10, 20, 15);
+  scene.add(dirLight);
 
-const loader = new STLLoader();
+  const loader = new STLLoader();
+  const geometry = loader.parse(output);
+  geometry.center();
+  geometry.computeVertexNormals();
+
+  const material = new THREE.MeshStandardMaterial({
+    color: BLUE,
+    flatShading: false,
+  });
+  const mesh = new THREE.Mesh(geometry, material);
+  scene.add(mesh);
+
+  function animate() {
+    requestAnimationFrame(animate);
+    controls.update();
+    renderer.render(scene, camera);
+  }
+  animate();
+
+  window.addEventListener("resize", () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+}
+
+init();
