@@ -29,6 +29,7 @@ async function init() {
   renderer.domElement.style.position = "fixed";
   renderer.domElement.style.top = "0";
   renderer.domElement.style.left = "0";
+  renderer.setPixelRatio(window.devicePixelRatio);
   document.body.prepend(renderer.domElement);
 
   const controls = new OrbitControls(camera, renderer.domElement);
@@ -66,3 +67,7 @@ async function init() {
 }
 
 init();
+
+document.getElementById('sidebar-close').addEventListener('click', () => {
+    document.getElementById('sidebar').style.display = 'none';
+});

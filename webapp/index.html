@@ -8,8 +8,12 @@
 
 <body>
     <div id="ui" class="h-screen w-full divide-x-2 divide-v-border">
-          <aside class="fixed top-0 left-0 w-128 h-full bg-v-dark text-v-fg z-10">
-            <div class="p-6">Fixed Sidebar</div>
+          <aside id="sidebar" class="fixed top-0 left-0 w-128 h-full bg-v-dark text-v-fg z-10 divide-y-1 divide-v-border">
+              <div class="p-1 flex flex-row">
+                  <div class="basis-full"><p class="font-mono">Vertexprint</p></div>
+                  <div>X</div>
+              </div>
+              <div class="p-1"><p class="font-mono">Fixed Sidebar</p></div>
           </aside>
         <script type="module" src="a.js"></script>
     </div>
