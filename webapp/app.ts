@@ -89,6 +89,7 @@ type SliderParam = {
     max: number;
     step: number;
     value: number;
+    unit: string;
 };
 
 type SelectParam = {
@@ -109,7 +110,8 @@ const OPTIONS: Param[] = [
         min: 0,
         max: 100,
         step: 0.05,
-        value: 3.0
+        value: 3.0,
+        unit: 'mm',
     },
     {
         kind: 'slider',
@@ -118,7 +120,8 @@ const OPTIONS: Param[] = [
         min: 0,
         max: 1,
         step: 0.01,
-        value: 0.35
+        value: 0.35,
+        unit: 'mm',
     },
     {
         kind: 'slider',
@@ -127,7 +130,8 @@ const OPTIONS: Param[] = [
         min: 0,
         max: 1,
         step: 0.01,
-        value: 0.1
+        value: 0.1,
+        unit: 'mm',
     },
     {
         kind: 'slider',
@@ -137,6 +141,7 @@ const OPTIONS: Param[] = [
         max: 40,
         step: 0.01,
         value: 1.2,
+        unit: 'mm',
     },
     {
         kind: 'slider',
@@ -146,6 +151,7 @@ const OPTIONS: Param[] = [
         max: 1000,
         step: 1,
         value: 100,
+        unit: '%',
     },
     {
         kind: 'slider',
@@ -155,6 +161,7 @@ const OPTIONS: Param[] = [
         max: 100,
         step: 0.1,
         value: 10,
+        unit: 'mm',
     },
     {
         kind: 'slider',
@@ -164,6 +171,7 @@ const OPTIONS: Param[] = [
         max: 30,
         step: 0.1,
         value: 15,
+        unit: '°',
     },
     {
         kind: 'select',
@@ -185,6 +193,7 @@ const OPTIONS: Param[] = [
         max: 100,
         step: 0.01,
         value: 0,
+        unit: 'mm',
     },
 ];
 
@@ -192,7 +201,8 @@ const TW_CLASS = {
     row: 'flex flex-col gap-0.5 px-1.5 py-1',
     top: 'flex items-center justify-between gap-1.5',
     label: 'font-mono text-[11px] text-v-fg truncate',
-    num: 'w-16 min-w-16 font-mono text-[11px] text-v-fg bg-black border border-v-border rounded-sm px-1 py-0.5 text-right focus:outline-none focus:border-v-blue',
+    num: 'w-16 min-w-16 font-mono text-[11px] leading-none text-v-fg bg-black border border-v-border rounded-sm py-0.5 pl-1 pr-5 text-left appearance-none focus:outline-none focus:border-v-blue',
+    unit: 'pointer-events-none absolute right-1 inset-y-0 flex items-center translate-y-px font-mono text-[11px] leading-none text-v-fg/70',
     slider: 'dh-slider w-full h-3.5 cursor-pointer appearance-none bg-transparent',
     select: 'w-full font-mono text-[11px] text-v-fg bg-black border border-v-border rounded-sm px-1 py-0.5 focus:outline-none focus:border-v-blue',
 };
@@ -220,7 +230,8 @@ function makeSlider(param: SliderParam): HTMLElement {
     row.dataset.param = param.name;
     row.innerHTML =
         `<div class="${TW_CLASS.top}"><span class="${TW_CLASS.label}">${param.label}</span>` +
-        `<input class="${TW_CLASS.num}" type="number" value="${param.value}"></div>` +
+        `<div class="relative"><input class="${TW_CLASS.num}" type="number" value="${param.value}">` +
+        `<span class="${TW_CLASS.unit}">${param.unit}</span></div></div>` +
         `<input class="${TW_CLASS.slider}" type="range" min="${param.min}" max="${param.max}" step="${param.step}" value="${param.value}">`;
     return row
 }

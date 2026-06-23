@@ -37,6 +37,7 @@
 }
 
 input[type="number"] { color-scheme: dark; }
+input[type="number"] { -moz-appearance: textfield; }
 
 /* Highlight while resizing. The cursor can slip off the 2px wide handle, so
  * :hover fails */
