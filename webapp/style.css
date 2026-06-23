@@ -4,6 +4,36 @@
   --color-v-fg: #B1B1B3;
   --color-v-bg: #232327;
   --color-v-dark: #0C0C0D;
+  --color-v-panel: #18181A;
   --color-v-border: #38383D;
   --color-v-blue: #75BAFF;
 }
+
+/* Tailwind has no utilities for sliders */
+.dh-slider::-webkit-slider-runnable-track {
+    height: 4px;
+    background: var(--color-v-border);
+    border-radius: 2px;
+}
+.dh-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 12px;
+    height: 12px;
+    margin-top: -4px;
+    background: var(--color-v-blue);
+    border: 1px;
+}
+.dh-slider::-moz-range-track {
+    height: 4px;
+    background: var(--color-v-border);
+    border-radius: 2px;
+}
+.dh-slider::-moz-range-thumb {
+    width: 12px;
+    height: 12px;
+    background: var(--color-v-blue);
+    border: 1px;
+}
+
+input[type="number"] { color-scheme: dark; }

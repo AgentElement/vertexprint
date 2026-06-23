@@ -1,21 +1,24 @@
-<!doctype html>
+<!DOCTYPE html>
 <html class="overflow-hidden bg-v-bg">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link href="a.css" rel="stylesheet">
-</head>
+	<head>
+		<title>Vertexprint</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<link href="a.css" rel="stylesheet">
+	</head>
 
-<body>
-    <div id="ui" class="h-screen w-full divide-x-2 divide-v-border">
-          <aside id="sidebar" class="fixed top-0 left-0 w-128 h-full bg-v-dark text-v-fg z-10 divide-y-1 divide-v-border">
-              <div class="p-1 flex flex-row">
-                  <div class="basis-full"><p class="font-mono">Vertexprint</p></div>
-                  <div>X</div>
-              </div>
-              <div class="p-1"><p class="font-mono">Fixed Sidebar</p></div>
-          </aside>
-        <script type="module" src="a.js"></script>
-    </div>
-</body>
+	<body>
+		<div id="ui" class="h-screen w-full">
+			<aside id="sidebar" class="fixed top-0 left-0 w-lg h-full bg-v-dark text-v-fg z-10 divide-y divide-v-border resize-x overflow-x-hidden overflow-y-auto min-w-40 max-w-[50vw]">
+				<div id="sidebar-resizer" class="absolute top-0 right-0 w-0.5 h-full cursor-col-resize bg-v-border hover:bg-v-blue"></div>
+				<div class="p-1 flex flex-row items-center">
+					<div class="basis-full"><p class="font-mono">Vertexprint</p></div>
+					<div id="sidebar-close" class="cursor-pointer px-1.5 font-mono text-v-fg hover:text-v-blue">X</div>
+				</div>
+				<div id="sidebar-opts" class="bg-v-panel divide-y divide-v-border"></div>
+			</aside>
+			<div id="sidebar-reopen" title="Show sidebar" class="fixed top-0 left-0 z-20 w-5 h-9 flex items-center justify-center bg-v-dark text-v-fg border border-v-border border-l-0 cursor-pointer font-mono" style="display:none">&hellip;</div>
+			<script type="module" src="a.js"></script>
+		</div>
+	</body>
 </html>
