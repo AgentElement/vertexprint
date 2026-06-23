@@ -105,7 +105,7 @@ const OPTIONS: Param[] = [
     {
         kind: 'slider',
         name: 'edge_diameter',
-        label: 'edge_diameter',
+        label: 'Rod diameter',
         min: 0,
         max: 100,
         step: 0.05,
@@ -114,7 +114,7 @@ const OPTIONS: Param[] = [
     {
         kind: 'slider',
         name: 'diameter_tolerance_fit',
-        label: 'diameter_tolerance_fit (mm)',
+        label: 'Diameter tolerance',
         min: 0,
         max: 1,
         step: 0.01,
@@ -123,7 +123,7 @@ const OPTIONS: Param[] = [
     {
         kind: 'slider',
         name: 'diameter_taper_fit',
-        label: 'diameter_taper_fit (mm)',
+        label: 'Diameter taper',
         min: 0,
         max: 1,
         step: 0.01,
@@ -132,7 +132,7 @@ const OPTIONS: Param[] = [
     {
         kind: 'slider',
         name: 'wall_thickness',
-        label: 'wall_thickness (mm)',
+        label: 'Wall thickness',
         min: 0,
         max: 40,
         step: 0.01,
@@ -141,7 +141,7 @@ const OPTIONS: Param[] = [
     {
         kind: 'slider',
         name: 'scale_factor',
-        label: 'scale_factor',
+        label: 'Scale',
         min: 0,
         max: 1000,
         step: 1,
@@ -150,7 +150,7 @@ const OPTIONS: Param[] = [
     {
         kind: 'slider',
         name: 'rod_inset',
-        label: 'rod_inset (mm)',
+        label: 'Rod inset depth',
         min: 0,
         max: 100,
         step: 0.1,
@@ -159,7 +159,7 @@ const OPTIONS: Param[] = [
     {
         kind: 'slider',
         name: 'max_printer_overhang_angle',
-        label: 'max_printer_overhang_angle (deg)',
+        label: 'Maximum overhang angle',
         min: 0,
         max: 30,
         step: 0.1,
@@ -168,19 +168,19 @@ const OPTIONS: Param[] = [
     {
         kind: 'select',
         name: 'offset_type',
-        label: 'offset_type',
+        label: 'Offset type',
         value: 'auto_global',
         options: [
-            { value: 'fixed', label: 'fixed' },
-            { value: 'auto_global', label: 'auto (global)' },
-            { value: 'auto_per_vertex', label: 'auto (per_vertex)' },
+            { value: 'fixed', label: 'Manual' },
+            { value: 'auto_global', label: 'Auto (global)' },
+            { value: 'auto_per_vertex', label: 'Auto (per-vertex)' },
         ],
         reveal: (v) => v === 'fixed' ? 'offset' : null,
     },
     {
         kind: 'slider',
         name: 'offset',
-        label: 'offset (mm)',
+        label: 'Offset',
         min: 0,
         max: 100,
         step: 0.01,
