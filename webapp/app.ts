@@ -297,6 +297,7 @@ for (const param of OPTIONS) {
     rows.set(param.name, row);
     opts.appendChild(row);
 }
+enforceSelects();
 
 // Open/close sidebar
 const reopen = document.getElementById('sidebar-reopen')!;
@@ -314,6 +315,7 @@ const resizer = document.getElementById('sidebar-resizer')!;
 let dragging = false, startX = 0, startW = 0;
 resizer.addEventListener('mousedown', (e) => {
     dragging = true;
+    resizer.classList.add('dragging');
     startX = e.clientX;
     startW = sidebar.offsetWidth;
     document.body.style.userSelect = 'none';
@@ -326,5 +328,7 @@ window.addEventListener('mousemove', (e) => {
     sidebar.style.maxWidth = 'none';
 });
 window.addEventListener('mouseup', () => {
-    dragging = false; document.body.style.userSelect = '';
+    dragging = false;
+    resizer.classList.remove('dragging');
+    document.body.style.userSelect = '';
 });
