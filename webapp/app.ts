@@ -83,13 +83,18 @@ init();
 
 type SliderParam = {
     kind: 'slider';
-    name: string; label: string;
-    min: number; max: number; step: number; value: number;
+    name: string;
+    label: string;
+    min: number;
+    max: number;
+    step: number;
+    value: number;
 };
 
 type SelectParam = {
     kind: 'select';
-    name: string; label: string;
+    name: string;
+    label: string;
     value: string;
     options: { value: string; label: string }[];
     reveal?: (v: string) => string | null;
@@ -97,26 +102,89 @@ type SelectParam = {
 type Param = SliderParam | SelectParam;
 
 const OPTIONS: Param[] = [
-    { kind: 'slider', name: 'edge_diameter', label: 'edge_diameter', min: 0, max: 100, step: 0.05, value: 3.0 },
-    { kind: 'slider', name: 'diameter_tolerance_fit', label: 'diameter_tolerance_fit (mm)', min: 0, max: 1, step: 0.01, value: 0.35 },
-    { kind: 'slider', name: 'diameter_taper_fit', label: 'diameter_taper_fit (mm)', min: 0, max: 1, step: 0.01, value: 0.1 },
     {
-        kind: 'slider', name: 'wall_thickness', label: 'wall_thickness (mm)', min: 0, max: 40, step: 0.01, value: 1.2,
+        kind: 'slider',
+        name: 'edge_diameter',
+        label: 'edge_diameter',
+        min: 0,
+        max: 100,
+        step: 0.05,
+        value: 3.0
     },
-    { kind: 'slider', name: 'scale_factor', label: 'scale_factor', min: 0, max: 1000, step: 1, value: 100 },
-    { kind: 'slider', name: 'rod_inset', label: 'rod_inset (mm)', min: 0, max: 100, step: 0.1, value: 10 },
-    { kind: 'slider', name: 'max_printer_overhang_angle', label: 'max_printer_overhang_angle (deg)', min: 0, max: 30, step: 0.1, value: 15 },
     {
-        kind: 'select', name: 'offset_type', label: 'offset_type', value: 'auto_global',
+        kind: 'slider',
+        name: 'diameter_tolerance_fit',
+        label: 'diameter_tolerance_fit (mm)',
+        min: 0,
+        max: 1,
+        step: 0.01,
+        value: 0.35
+    },
+    {
+        kind: 'slider',
+        name: 'diameter_taper_fit',
+        label: 'diameter_taper_fit (mm)',
+        min: 0,
+        max: 1,
+        step: 0.01,
+        value: 0.1
+    },
+    {
+        kind: 'slider',
+        name: 'wall_thickness',
+        label: 'wall_thickness (mm)',
+        min: 0,
+        max: 40,
+        step: 0.01,
+        value: 1.2,
+    },
+    {
+        kind: 'slider',
+        name: 'scale_factor',
+        label: 'scale_factor',
+        min: 0,
+        max: 1000,
+        step: 1,
+        value: 100,
+    },
+    {
+        kind: 'slider',
+        name: 'rod_inset',
+        label: 'rod_inset (mm)',
+        min: 0,
+        max: 100,
+        step: 0.1,
+        value: 10,
+    },
+    {
+        kind: 'slider',
+        name: 'max_printer_overhang_angle',
+        label: 'max_printer_overhang_angle (deg)',
+        min: 0,
+        max: 30,
+        step: 0.1,
+        value: 15,
+    },
+    {
+        kind: 'select',
+        name: 'offset_type',
+        label: 'offset_type',
+        value: 'auto_global',
         options: [
             { value: 'fixed', label: 'fixed' },
             { value: 'auto_global', label: 'auto (global)' },
             { value: 'auto_per_vertex', label: 'auto (per_vertex)' },
         ],
-        reveal: v => v === 'fixed' ? 'offset' : null
+        reveal: (v) => v === 'fixed' ? 'offset' : null,
     },
     {
-        kind: 'slider', name: 'offset', label: 'offset (mm)', min: 0, max: 100, step: 0.01, value: 0,
+        kind: 'slider',
+        name: 'offset',
+        label: 'offset (mm)',
+        min: 0,
+        max: 100,
+        step: 0.01,
+        value: 0,
     },
 ];
 
