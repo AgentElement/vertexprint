@@ -42,3 +42,5 @@ input[type="number"] { -moz-appearance: textfield; }
 /* Highlight while resizing. The cursor can slip off the 2px wide handle, so
  * :hover fails */
 #sidebar-resizer.dragging { background-color: var(--color-v-blue); }
+
+.opt-label:hover { text-decoration: underline; }

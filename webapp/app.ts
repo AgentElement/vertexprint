@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
+import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 
 
@@ -85,6 +86,7 @@ type SliderParam = {
     kind: 'slider';
     name: string;
     label: string;
+    desc: string;
     min: number;
     max: number;
     step: number;
@@ -96,6 +98,7 @@ type SelectParam = {
     kind: 'select';
     name: string;
     label: string;
+    desc: string;
     value: string;
     options: { value: string; label: string }[];
     reveal?: (v: string) => string | null;
@@ -107,6 +110,7 @@ const OPTIONS: Param[] = [
         kind: 'slider',
         name: 'edge_diameter',
         label: 'Rod diameter',
+        desc: 'Diameter of your dowel rods.',
         min: 0,
         max: 100,
         step: 0.05,
@@ -117,6 +121,7 @@ const OPTIONS: Param[] = [
         kind: 'slider',
         name: 'diameter_tolerance_fit',
         label: 'Diameter tolerance',
+        desc: 'Additional tolerance added to the diameter.\nI recommend adding about 12% of your diameter for wood dowel rods, and 5% for metal',
         min: 0,
         max: 1,
         step: 0.01,
@@ -127,6 +132,7 @@ const OPTIONS: Param[] = [
         kind: 'slider',
         name: 'diameter_taper_fit',
         label: 'Diameter taper',
+        desc: 'The rod holder diameter decreases by this amount. A small taper is helpful to account for small amounts of unevenness in the diameters of your dowel rods, particularly for wood dowel rods',
         min: 0,
         max: 1,
         step: 0.01,
@@ -137,6 +143,7 @@ const OPTIONS: Param[] = [
         kind: 'slider',
         name: 'wall_thickness',
         label: 'Wall thickness',
+        desc: 'Thickness of the tube walls.',
         min: 0,
         max: 40,
         step: 0.01,
@@ -147,6 +154,7 @@ const OPTIONS: Param[] = [
         kind: 'slider',
         name: 'scale_factor',
         label: 'Scale',
+        desc: 'Scale factor. Vertexprinted objects are typically larger than than the original object, so this starts out large.',
         min: 0,
         max: 1000,
         step: 1,
@@ -156,7 +164,8 @@ const OPTIONS: Param[] = [
     {
         kind: 'slider',
         name: 'rod_inset',
-        label: 'Rod inset depth',
+        label: 'Tube depth',
+        desc: 'The depth of each tube',
         min: 0,
         max: 100,
         step: 0.1,
@@ -167,9 +176,10 @@ const OPTIONS: Param[] = [
         kind: 'slider',
         name: 'max_printer_overhang_angle',
         label: 'Maximum overhang angle',
+        desc: 'The maximum overhang angle your printer allows',
         min: 0,
-        max: 30,
-        step: 0.1,
+        max: 90,
+        step: 5,
         value: 15,
         unit: '°',
     },
@@ -177,6 +187,7 @@ const OPTIONS: Param[] = [
         kind: 'select',
         name: 'offset_type',
         label: 'Offset type',
+        desc: 'placeholder', // complicated explanation
         value: 'auto_global',
         options: [
             { value: 'fixed', label: 'Manual' },
@@ -189,6 +200,7 @@ const OPTIONS: Param[] = [
         kind: 'slider',
         name: 'offset',
         label: 'Offset',
+        desc: 'placeholder', // see comment above
         min: 0,
         max: 100,
         step: 0.01,
@@ -200,7 +212,7 @@ const OPTIONS: Param[] = [
 const TW_CLASS = {
     row: 'flex flex-col gap-0.5 px-1.5 py-1',
     top: 'flex items-center justify-between gap-1.5',
-    label: 'font-mono text-[11px] text-v-fg truncate',
+    label: 'opt-label font-mono text-[11px] text-v-fg truncate',
     num: 'w-16 min-w-16 font-mono text-[11px] leading-none text-v-fg bg-black border border-v-border rounded-sm py-0.5 pl-1 pr-5 text-left appearance-none focus:outline-none focus:border-v-blue',
     unit: 'pointer-events-none absolute right-1 inset-y-0 flex items-center translate-y-px font-mono text-[11px] leading-none text-v-fg/70',
     slider: 'dh-slider w-full h-3.5 cursor-pointer appearance-none bg-transparent',
@@ -229,7 +241,7 @@ function makeSlider(param: SliderParam): HTMLElement {
     row.className = TW_CLASS.row;
     row.dataset.param = param.name;
     row.innerHTML =
-        `<div class="${TW_CLASS.top}"><span class="${TW_CLASS.label}">${param.label}</span>` +
+        `<div class="${TW_CLASS.top}"><span class="${TW_CLASS.label}" title="${param.desc}">${param.label}</span>` +
         `<div class="relative"><input class="${TW_CLASS.num}" type="number" value="${param.value}">` +
         `<span class="${TW_CLASS.unit}">${param.unit}</span></div></div>` +
         `<input class="${TW_CLASS.slider}" type="range" min="${param.min}" max="${param.max}" step="${param.step}" value="${param.value}">`;
@@ -243,7 +255,7 @@ function makeSelect(param: SelectParam): HTMLElement {
     const paramsHTML = param.options.map(o =>
         `<option value="${o.value}"${o.value === param.value ? ' selected' : ''}>${o.label}</option>`).join('');
     row.innerHTML =
-        `<div class="${TW_CLASS.top}"><span class="${TW_CLASS.label}">${param.label}</span></div>` +
+        `<div class="${TW_CLASS.top}"><span class="${TW_CLASS.label}" title="${param.desc}">${param.label}</span></div>` +
         `<select class="${TW_CLASS.select}">${paramsHTML}</select>`;
     return row
 }
