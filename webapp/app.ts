@@ -46,7 +46,7 @@ async function init() {
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.update();
 
-    scene.add(new THREE.AmbientLight(V_FG, 2));
+    scene.add(new THREE.AmbientLight(V_DARK, 2));
     const dirLight = new THREE.DirectionalLight(V_FG, 2);
     dirLight.position.set(10, 20, 15);
     scene.add(dirLight);
@@ -241,10 +241,10 @@ function makeSlider(param: SliderParam): HTMLElement {
     row.className = TW_CLASS.row;
     row.dataset.param = param.name;
     row.innerHTML =
-        `<div class="${TW_CLASS.top}"><span class="${TW_CLASS.label}" title="${param.desc}">${param.label}</span>` +
-        `<div class="relative"><input class="${TW_CLASS.num}" type="number" value="${param.value}">` +
-        `<span class="${TW_CLASS.unit}">${param.unit}</span></div></div>` +
-        `<input class="${TW_CLASS.slider}" type="range" min="${param.min}" max="${param.max}" step="${param.step}" value="${param.value}">`;
+        `<div class="${TW_CLASS.top}"><span class="${TW_CLASS.label}" title="${param.desc}">${param.label}</span>`
+        + `<div class="relative"><input class="${TW_CLASS.num}" type="number" value="${param.value}">`
+        + `<span class="${TW_CLASS.unit}">${param.unit}</span></div></div>`
+        + `<input class="${TW_CLASS.slider}" type="range" min="${param.min}" max="${param.max}" step="${param.step}" value="${param.value}">`;
     return row
 }
 
@@ -255,8 +255,8 @@ function makeSelect(param: SelectParam): HTMLElement {
     const paramsHTML = param.options.map(o =>
         `<option value="${o.value}"${o.value === param.value ? ' selected' : ''}>${o.label}</option>`).join('');
     row.innerHTML =
-        `<div class="${TW_CLASS.top}"><span class="${TW_CLASS.label}" title="${param.desc}">${param.label}</span></div>` +
-        `<select class="${TW_CLASS.select}">${paramsHTML}</select>`;
+        `<div class="${TW_CLASS.top}"><span class="${TW_CLASS.label}" title="${param.desc}">${param.label}</span></div>`
+        + `<select class="${TW_CLASS.select}">${paramsHTML}</select>`;
     return row
 }
 
