@@ -215,7 +215,7 @@ const TW_CLASS = {
     label: 'opt-label font-mono text-[11px] text-v-fg truncate',
     num: 'w-16 min-w-16 font-mono text-[11px] leading-none text-v-fg bg-black border border-v-border rounded-sm py-0.5 pl-1 pr-5 text-left appearance-none focus:outline-none focus:border-v-blue',
     unit: 'pointer-events-none absolute right-1 inset-y-0 flex items-center translate-y-px font-mono text-[11px] leading-none text-v-fg/70',
-    slider: 'dh-slider w-full h-3.5 cursor-pointer appearance-none bg-transparent',
+    slider: 'dh-slider w-full h-3.5 cursor-pointer appearance-none',
     select: 'w-full font-mono text-[11px] text-v-fg bg-black border border-v-border rounded-sm px-1 py-0.5 focus:outline-none focus:border-v-blue',
 };
 
@@ -277,16 +277,23 @@ function enforceSelects() {
 
 // Synchronize slider with corresponding num entry and vv
 function syncSlider(r: SliderRow) {
+    const setFill = () => {
+        const pct = (clamp(r.slider.valueAsNumber, r.param.min, r.param.max) - r.param.min)
+            / (r.param.max - r.param.min) * 100;
+        r.slider.style.setProperty('--fill', `${pct}%`);
+    };
     const sync = (src: 'slider' | 'num') => {
         const raw = parseFloat(src === 'slider' ? r.slider.value : r.num.value);
         const v = clamp(isNaN(raw) ? 0 : raw, r.param.min, r.param.max);
         r.slider.value = String(v);
         r.num.value = String(v);
         values[r.param.name] = v;
+        setFill();
     };
     r.slider.addEventListener('input', () => sync('slider'));
     r.num.addEventListener('input', () => sync('num'));
     r.num.addEventListener('change', () => sync('num'));
+    setFill();
 }
 
 function syncSelect(r: SelectRow) {
