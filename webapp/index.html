@@ -10,17 +10,20 @@
 	<body>
 		<div id="ui" class="h-screen w-full">
 			<!-- Sidebar. Most items are dynamically generated. -->
-			<aside id="sidebar" class="fixed top-0 left-0 w-64 h-full bg-v-dark text-v-fg z-10 divide-y divide-v-border resize-x overflow-x-hidden overflow-y-auto min-w-40 max-w-[50vw]">
+			<aside id="sidebar" class="fixed top-0 left-0 w-96 h-full bg-v-dark text-v-fg z-10 resize-x overflow-x-hidden overflow-hidden flex flex-col min-w-40 max-w-[50vw]">
 				<div id="sidebar-resizer" class="absolute top-0 right-0 w-0.5 h-full cursor-col-resize bg-v-border hover:bg-v-blue"></div>
 				<div class="p-1 flex flex-row items-center">
-					<div class="basis-full">
+					<div id="sidebar-title" class="basis-full">
 						<p class="font-pixel text-2xl p-2">Vertexprint</p>
 					</div>
 					<div id="sidebar-close" class="cursor-pointer m-2 w-9 h-9 shrink-0 flex items-center justify-center text-v-fg hover:bg-v-blue hover:text-v-dark text-xl">
 						<span class="icon-[pixelarticons--close]"></span>
 					</div>
 				</div>
-				<div id="sidebar-opts" class="bg-v-panel divide-y divide-v-border"></div>
+				<div id="sidebar-opts" class="flex-1 overflow-y-auto divide-y divide-v-border *:bg-v-panel"></div>
+				<div id="construct-button" class="shrink-0 bg-v-bg text-v-green border-t border-v-border hover:bg-v-green hover:text-v-dark">
+					<p class="font-pixel text-2xl p-3 text-center">Construct</p>
+				</div>
 			</aside>
 			<!-- Sidebar reopen button -->
 			<div id="sidebar-reopen" title="Show sidebar" class="fixed top-2 left-2 z-20 w-9 h-9 flex items-center justify-center bg-v-dark text-v-fg cursor-pointer text-xl hover:bg-v-blue hover:text-v-dark shadow-md" style="display:none">
