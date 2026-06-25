@@ -213,10 +213,10 @@ const TW_CLASS = {
     row: 'flex flex-col gap-0.5 px-1.5 py-1',
     top: 'flex items-center justify-between gap-1.5',
     label: 'opt-label font-mono text-[11px] text-v-fg truncate',
-    num: 'w-16 min-w-16 font-mono text-[11px] leading-none text-v-fg bg-black border border-v-border rounded-sm py-0.5 pl-1 pr-5 text-left appearance-none focus:outline-none focus:border-v-blue',
+    num: 'w-16 min-w-16 font-mono text-[11px] leading-none text-v-fg bg-black border border-v-border py-0.5 pl-1 pr-5 text-left appearance-none focus:outline-none focus:border-v-blue',
     unit: 'pointer-events-none absolute right-1 inset-y-0 flex items-center translate-y-px font-mono text-[11px] leading-none text-v-fg/70',
     slider: 'dh-slider w-full h-3.5 cursor-pointer appearance-none',
-    select: 'w-full font-mono text-[11px] text-v-fg bg-black border border-v-border rounded-sm px-1 py-0.5 focus:outline-none focus:border-v-blue',
+    select: 'w-full font-mono text-[11px] text-v-fg bg-black border border-v-border px-1 py-0.5 focus:outline-none focus:border-v-blue',
 };
 
 const sidebar = document.getElementById('sidebar')!;

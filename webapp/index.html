@@ -9,18 +9,34 @@
 
 	<body>
 		<div id="ui" class="h-screen w-full">
+			<!-- Sidebar. Most items are dynamically generated. -->
 			<aside id="sidebar" class="fixed top-0 left-0 w-64 h-full bg-v-dark text-v-fg z-10 divide-y divide-v-border resize-x overflow-x-hidden overflow-y-auto min-w-40 max-w-[50vw]">
 				<div id="sidebar-resizer" class="absolute top-0 right-0 w-0.5 h-full cursor-col-resize bg-v-border hover:bg-v-blue"></div>
 				<div class="p-1 flex flex-row items-center">
-					<div class="basis-full"><p class="font-pixel text-2xl p-2">Vertexprint</p></div>
+					<div class="basis-full">
+						<p class="font-pixel text-2xl p-2">Vertexprint</p>
+					</div>
 					<div id="sidebar-close" class="cursor-pointer m-2 w-9 h-9 shrink-0 flex items-center justify-center text-v-fg hover:bg-v-blue hover:text-v-dark text-xl">
 						<span class="icon-[pixelarticons--close]"></span>
 					</div>
 				</div>
 				<div id="sidebar-opts" class="bg-v-panel divide-y divide-v-border"></div>
 			</aside>
+			<!-- Sidebar reopen button -->
 			<div id="sidebar-reopen" title="Show sidebar" class="fixed top-2 left-2 z-20 w-9 h-9 flex items-center justify-center bg-v-dark text-v-fg cursor-pointer text-xl hover:bg-v-blue hover:text-v-dark shadow-md" style="display:none">
 				<span class="icon-[pixelarticons--menu]"></span>
+			</div>
+			<!-- Center pill -->
+			<div id="menu-pill" class="fixed top-2 left-1/2 -translate-x-1/2 z-20 flex items-center bg-v-dark shadow-md">
+				<button type="button" title="Upload" class="cursor-pointer w-9 h-9 flex items-center justify-center text-v-fg text-xl hover:bg-v-blue hover:text-v-dark">
+					<span class="icon-[pixelarticons--upload]"></span>
+				</button>
+				<button type="button" title="Download" class="cursor-pointer w-9 h-9 flex items-center justify-center text-v-fg text-xl hover:bg-v-blue hover:text-v-dark">
+					<span class="icon-[pixelarticons--download]"></span>
+				</button>
+				<button type="button" title="Help" class="cursor-pointer w-9 h-9 flex items-center justify-center text-v-fg text-xl hover:bg-v-blue hover:text-v-dark">
+					<span class="icon-[pixelarticons--info-box]"></span>
+				</button>
 			</div>
 			<script type="module" src="a.js"></script>
 		</div>
