@@ -21,13 +21,39 @@
 					</div>
 				</div>
 				<div id="sidebar-opts" class="flex-1 overflow-y-auto divide-y divide-v-border *:bg-v-panel"></div>
-				<div id="construct-button" class="shrink-0 bg-v-bg text-v-green border-t border-v-border hover:bg-v-green hover:text-v-dark">
+				<div id="construct-button" class="cursor-pointer shrink-0 bg-v-bg text-v-green border-t border-v-border hover:bg-v-green hover:text-v-dark">
 					<p class="font-pixel text-2xl p-3 text-center">Construct</p>
 				</div>
 			</aside>
 			<!-- Sidebar reopen button -->
 			<div id="sidebar-reopen" title="Show sidebar" class="fixed top-2 left-2 z-20 w-9 h-9 flex items-center justify-center bg-v-dark text-v-fg cursor-pointer text-xl hover:bg-v-blue hover:text-v-dark shadow-md" style="display:none">
 				<span class="icon-[pixelarticons--menu]"></span>
+			</div>
+			<!-- Floating artifacts panel -->
+			<div id="inspector" class="fixed top-2 right-2 z-20 w-64 bg-v-dark text-v-fg shadow-md flex flex-col">
+				<div id="inspector-tabs" class="flex border-b border-v-border">
+					<button type="button" data-tab="vertices" class="inspector-tab flex-1 cursor-pointer font-pixel text-base py-1 text-v-blue border-b border-v-blue bg-v-panel">
+						vertices
+					</button>
+					<button type="button" data-tab="edges" class="inspector-tab flex-1 cursor-pointer font-pixel text-base py-1 text-v-fg border-b border-transparent hover:bg-v-panel">
+						edges
+					</button>
+					<div id="inspector-close" class="cursor-pointer w-9 h-9 shrink-0 flex items-center justify-center text-v-fg hover:bg-v-blue hover:text-v-dark text-xl">
+						<span class="icon-[pixelarticons--close]"></span>
+					</div>
+				</div>
+				<div class="p-2 overflow-y-auto max-h-[60vh] font-mono text-[11px] leading-relaxed text-v-fg/90">
+					<div data-pane="vertices" class="inspector-pane">
+						<p class="mb-1 text-v-fg/70">0 vertices</p>
+					</div>
+					<div data-pane="edges" class="inspector-pane" style="display:none">
+						<p class="mb-1 text-v-fg/70">0 edges</p>
+					</div>
+				</div>
+			</div>
+			<!-- Inspector reopen button -->
+			<div id="inspector-reopen" title="Show inspector" class="fixed top-2 right-2 z-20 w-9 h-9 flex items-center justify-center bg-v-dark text-v-fg cursor-pointer text-xl hover:bg-v-blue hover:text-v-dark shadow-md" style="display:none">
+				<span class="icon-[pixelarticons--chevron-left]"></span>
 			</div>
 			<!-- Center pill -->
 			<div id="menu-pill" class="fixed top-2 left-1/2 -translate-x-1/2 z-20 flex items-center bg-v-dark shadow-md">

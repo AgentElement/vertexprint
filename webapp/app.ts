@@ -220,6 +220,7 @@ const TW_CLASS = {
 };
 
 const sidebar = document.getElementById('sidebar')!;
+const inspector = document.getElementById('inspector')!;
 const values: Record<string, number | string> = {};
 const rows = new Map<string, HTMLElement>();
 
@@ -330,22 +331,22 @@ for (const param of OPTIONS) {
 enforceSelects();
 
 // Open/close sidebar
-const reopen = document.getElementById('sidebar-reopen')!;
+const sidebar_reopen = document.getElementById('sidebar-reopen')!;
 document.getElementById('sidebar-close')!.addEventListener('click', () => {
     sidebar.style.display = 'none';
-    reopen.style.display = 'flex';
+    sidebar_reopen.style.display = 'flex';
 });
-reopen.addEventListener('click', () => {
+sidebar_reopen.addEventListener('click', () => {
     sidebar.style.display = '';
-    reopen.style.display = 'none';
+    sidebar_reopen.style.display = 'none';
 });
 
 // Resize sidebar
-const resizer = document.getElementById('sidebar-resizer')!;
+const sidebar_resizer = document.getElementById('sidebar-resizer')!;
 let dragging = false, startX = 0, startW = 0;
-resizer.addEventListener('mousedown', (e) => {
+sidebar_resizer.addEventListener('mousedown', (e) => {
     dragging = true;
-    resizer.classList.add('dragging');
+    sidebar_resizer.classList.add('dragging');
     startX = e.clientX;
     startW = sidebar.offsetWidth;
     document.body.style.userSelect = 'none';
@@ -359,6 +360,36 @@ window.addEventListener('mousemove', (e) => {
 });
 window.addEventListener('mouseup', () => {
     dragging = false;
-    resizer.classList.remove('dragging');
+    sidebar_resizer.classList.remove('dragging');
     document.body.style.userSelect = '';
+});
+
+// Switch tabs in inspector panel
+document.querySelectorAll<HTMLButtonElement>('#inspector-tabs .inspector-tab').forEach((tab) => {
+    tab.addEventListener('click', () => {
+        const name = tab.dataset.tab;
+        document.querySelectorAll<HTMLButtonElement>('#inspector-tabs .inspector-tab').forEach((t) => {
+            const active = t.dataset.tab === name;
+            t.classList.toggle('text-v-blue', active);
+            t.classList.toggle('border-v-blue', active);
+            t.classList.toggle('bg-v-panel', active);
+            t.classList.toggle('text-v-fg', !active);
+            t.classList.toggle('border-transparent', !active);
+        });
+        document.querySelectorAll<HTMLElement>('.inspector-pane').forEach((p) => {
+            p.style.display = p.dataset.pane === name ? '' : 'none';
+        });
+    });
+});
+
+
+// Open/close inspector
+const inspector_reopen = document.getElementById('inspector-reopen')!;
+document.getElementById('inspector-close')!.addEventListener('click', () => {
+    inspector.style.display = 'none';
+    inspector_reopen.style.display = 'flex';
+});
+inspector_reopen.addEventListener('click', () => {
+    inspector.style.display = '';
+    inspector_reopen.style.display = 'none';
 });
