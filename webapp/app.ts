@@ -5,7 +5,6 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 
 
 // utils ---
-
 function clamp(v: number, min: number, max: number): number {
     return Math.min(max, Math.max(min, v));
 }
@@ -24,8 +23,65 @@ const V_BORDER = cssVar("--color-v-border");
 const V_BLUE = cssVar("--color-v-blue");
 
 
-// Canvas logic. Placeholder. ---
+function makeOrientationCube(renderer: THREE.WebGLRenderer):
+    [THREE.Mesh, THREE.Scene, THREE.OrthographicCamera] {
+    const scene = new THREE.Scene();
+    const cam = new THREE.OrthographicCamera();
+    cam.position.set(0, 0, 1);
 
+    const FACE_COLOR = '#' + V_BORDER.toString(16).padStart(6, '0');
+    const TEXT_COLOR = '#' + V_FG.toString(16).padStart(6, '0');
+    const TEXTURE_SIZE = 256;
+
+    const maxAnisotropy = renderer.capabilities.getMaxAnisotropy();
+    function makeFaceLabel(text: string): THREE.CanvasTexture {
+        const canvas = document.createElement("canvas");
+        canvas.width = canvas.height = TEXTURE_SIZE;
+        const context = canvas.getContext("2d")!;
+        context.fillStyle = FACE_COLOR;
+        context.fillRect(0, 0, TEXTURE_SIZE, TEXTURE_SIZE);
+        context.fillStyle = TEXT_COLOR;
+        context.font = `48px monospace`;
+        context.textAlign = "center";
+        context.textBaseline = "middle";
+        context.fillText(text, TEXTURE_SIZE / 2, TEXTURE_SIZE / 2);
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.anisotropy = maxAnisotropy;
+        return texture;
+    }
+
+    const faceLabels: string[] = [
+        "Right",    // +x
+        "Left",     // -x
+        "Top",      // +y
+        "Bottom",   // -y
+        "Front",    // +z
+        "Back"      // -z
+    ];
+
+    const cubeMaterials = faceLabels.map(label => {
+        const texture = makeFaceLabel(label);
+        return new THREE.MeshPhongMaterial({
+            map: texture,
+        });
+    });
+
+    const cube = new THREE.Mesh(
+        new THREE.BoxGeometry(0.75, 0.75, 0.75),
+        cubeMaterials
+    );
+    scene.add(cube);
+    scene.add(new THREE.AmbientLight(0xffffff, 1));
+
+    const directionalLight = new THREE.DirectionalLight(V_FG, 2);
+    directionalLight.position.set(1, 1, 1);
+    scene.add(directionalLight);
+
+    return [cube, scene, cam]
+}
+
+// Canvas logic. Placeholder. ---
 async function init() {
     const output = await fetch("cube.stl").then((res) => res.arrayBuffer());
 
@@ -47,9 +103,9 @@ async function init() {
     controls.update();
 
     scene.add(new THREE.AmbientLight(V_DARK, 2));
-    const dirLight = new THREE.DirectionalLight(V_FG, 2);
-    dirLight.position.set(10, 20, 15);
-    scene.add(dirLight);
+    const directionalLight = new THREE.DirectionalLight(V_FG, 2);
+    directionalLight.position.set(10, 20, 15);
+    scene.add(directionalLight);
 
     const loader = new STLLoader();
     const geometry = loader.parse(output);
@@ -63,10 +119,39 @@ async function init() {
     const mesh = new THREE.Mesh(geometry, material);
     scene.add(mesh);
 
+
+    const orientationCubeTuple = makeOrientationCube(renderer);
+    const cube = orientationCubeTuple[0];
+    const cubeScene = orientationCubeTuple[1];
+    const cubeCamera = orientationCubeTuple[2];
+
+    const ORENT_CUBE_SIZE = 240;
+    renderer.autoClear = false;
+    renderer.setScissorTest(true);
+
     function animate() {
         requestAnimationFrame(animate);
         controls.update();
+
+        const W = window.innerWidth;
+        const H = window.innerHeight;
+
+        // Full-screen main scene
+        renderer.setViewport(0, 0, W, H);
+        renderer.setScissor(0, 0, W, H);
+        renderer.clear();
         renderer.render(scene, camera);
+
+        // Counter-rotate the orientation cube so its faces track the camera's
+        // orientation (ie the cube shows where the camera looks).
+        cube.quaternion.copy(camera.quaternion).invert();
+
+        const gx = W - ORENT_CUBE_SIZE;     // right edge
+        const gy = 0;                       // bottom edge (GL y is measured from bottom)
+        renderer.setViewport(gx, gy, ORENT_CUBE_SIZE, ORENT_CUBE_SIZE);
+        renderer.setScissor(gx, gy, ORENT_CUBE_SIZE, ORENT_CUBE_SIZE);
+        renderer.clearDepth();
+        renderer.render(cubeScene, cubeCamera);
     }
     animate();
 
