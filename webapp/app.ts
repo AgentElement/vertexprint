@@ -478,3 +478,84 @@ inspector_reopen.addEventListener('click', () => {
     inspector.style.display = '';
     inspector_reopen.style.display = 'none';
 });
+
+// Presets dropdown entries
+const PRESETS: Record<string, Record<string, string>> = {
+    'Platonic solids': {
+        'Tetrahedron': 'Tetrahedron.txt',
+        'Cube': 'Cube.txt',
+        'Octahedron': 'Octahedron.txt',
+        'Dodecahedron': 'Dodecahedron.txt',
+        'Icosahedron': 'Icosahedron.txt',
+    },
+    'Archimedean solids': {
+        'Truncated Tetrahedron': 'TruncatedTetrahedron.txt',
+        'Cuboctahedron': 'Cuboctahedron.txt',
+        'Truncated Cube': 'TruncatedCube.txt',
+        'Truncated Octahedron': 'TruncatedOctahedron.txt',
+        'Rhombicuboctahedron': 'Rhombicuboctahedron.txt',
+        'Truncated Cuboctahedron': 'TruncatedCuboctahedron.txt',
+        'Snub Cube (laevo)': 'LsnubCube.txt',
+        'Icosidodecahedron': 'Icosidodecahedron.txt',
+        'Truncated Dodecahedron': 'TruncatedDodecahedron.txt',
+        'Truncated Icosahedron': 'TruncatedIcosahedron.txt',
+        'Rhombicosidodecahedron': 'Rhombicosidodecahedron.txt',
+        'Truncated Icosidodecahedron': 'TruncatedIcosidodecahedron.txt',
+        'Snub Dodecahedron (laevo)': 'LsnubDodecahedron.txt',
+    },
+    'Catalan solids': {
+        'Triakis Tetrahedron': 'TriakisTetrahedron.txt',
+        'Rhombic Dodecahedron': 'RhombicDodecahedron.txt',
+        'Triakis Octahedron': 'TriakisOctahedron.txt',
+        'Tetrakis Hexahedron': 'TetrakisHexahedron.txt',
+        'Deltoidal Icositetrahedron': 'DeltoidalIcositetrahedron.txt',
+        'Disdyakis Dodecahedron': 'DisdyakisDodecahedron.txt',
+        'Pentagonal Icositetrahedron (laevo)': 'LpentagonalIcositetrahedron.txt',
+        'Rhombic Triacontahedron': 'RhombicTriacontahedron.txt',
+        'Triakis Icosahedron': 'TriakisIcosahedron.txt',
+        'Pentakis Dodecahedron': 'PentakisDodecahedron.txt',
+        'Deltoidal Hexecontahedron': 'DeltoidalHexecontahedron.txt',
+        'Disdyakis Triacontahedron': 'DisdyakisTriacontahedron.txt',
+        'Pentagonal Hexecontahedron (laevo)': 'LpentagonalHexecontahedron.txt',
+    },
+    'Misc': {
+        'Stanford Bunny': 'Bunny-LowPoly.stl',
+        'Rhombic Dodecahedron Tiling': '13RhombicDodecahedra.obj',
+    },
+};
+
+const presets_btn = document.getElementById('presets-btn')!;
+const presets_menu = document.getElementById('presets-menu')!;
+
+for (const [category, solids] of Object.entries(PRESETS)) {
+    const header = document.createElement('p');
+    header.textContent = category;
+    header.className = 'font-mono text-xs px-3 pt-2 pb-1 text-v-fg/60 border-b border-v-border min-w-full';
+    presets_menu.appendChild(header);
+    for (const [label, file] of Object.entries(solids)) {
+        const item = document.createElement('button');
+        item.type = 'button';
+        item.textContent = label;
+        item.dataset.file = file;
+        item.className = 'block w-full cursor-pointer text-left font-mono text-xs px-3 py-1 text-v-fg hover:bg-v-blue hover:text-v-dark';
+        presets_menu.appendChild(item);
+    }
+}
+
+presets_btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    presets_menu.classList.toggle('hidden');
+});
+
+// Close the menu when clicking outside it or selecting an item.
+document.addEventListener('click', (e) => {
+    if (!presets_menu.contains(e.target as Node) && e.target !== presets_btn) {
+        presets_menu.classList.add('hidden');
+    }
+});
+presets_menu.addEventListener('click', (e) => {
+    const target = e.target as HTMLElement;
+    if (target.tagName === 'BUTTON') {
+        presets_menu.classList.add('hidden');
+    }
+});
