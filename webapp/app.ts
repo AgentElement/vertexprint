@@ -2,7 +2,10 @@ import * as THREE from "three";
 import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
 import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 
+const DATA_DIR = "data/";
+const DEFAULT_MODEL = "DisdyakisTriacontahedron.obj";
 
 // utils ---
 function clamp(v: number, min: number, max: number): number {
@@ -82,13 +85,75 @@ function makeOrientationCube(renderer: THREE.WebGLRenderer):
 }
 
 // Canvas logic. Placeholder. ---
-async function initCanvas() {
-    const output = await fetch("cube.stl").then((res) => res.arrayBuffer());
+let scene: THREE.Scene;
+let camera: THREE.PerspectiveCamera;
+let controls: OrbitControls;
+let currentMesh: THREE.Mesh | null = null;
 
-    const scene = new THREE.Scene();
+// Merge every mesh geometry contained in an OBJLoader-produced group.
+function geometryFromObj(text: string): THREE.BufferGeometry {
+    const group = new OBJLoader().parse(text);
+    const geometries: THREE.BufferGeometry[] = [];
+    group.traverse((o: THREE.Object3D) => {
+        const mesh = o as THREE.Mesh;
+        if (mesh.isMesh) geometries.push(mesh.geometry);
+    });
+    if (geometries.length === 0) return new THREE.BufferGeometry();
+    if (geometries.length === 1) return geometries[0];
+    return mergeGeometries(geometries, false) ?? geometries[0];
+}
+
+// Reposition camera to fit viewport. Keep current camera orientation
+function fitView(geometry: THREE.BufferGeometry) {
+    geometry.computeBoundingSphere();
+    const radius = geometry.boundingSphere?.radius ?? 1;
+    const fov = (camera.fov * Math.PI) / 180;
+    const dist = (radius / Math.sin(fov / 2)) * 1.25;
+    const dir = new THREE.Vector3()
+        .copy(camera.position)
+        .sub(controls.target)
+        .normalize();
+    if (dir.lengthSq() === 0) dir.set(1, 0.75, 1).normalize();
+    camera.position.copy(dir.multiplyScalar(dist));
+    controls.target.set(0, 0, 0);
+    controls.update();
+}
+
+async function loadFile(filename: string) {
+    if (!currentMesh) return;
+    const lower = filename.toLowerCase();
+    let url: string;
+    let geometry: THREE.BufferGeometry;
+    try {
+        if (lower.endsWith(".stl")) {
+            url = DATA_DIR + filename;
+            const buf = await fetch(url).then((r) => r.arrayBuffer());
+            geometry = new STLLoader().parse(buf);
+        } else if (lower.endsWith(".obj")) {
+            url = DATA_DIR + filename;
+            const text = await fetch(url).then((r) => r.text());
+            geometry = geometryFromObj(text);
+        } else {
+            return;
+        }
+    } catch (e) {
+        // TODO: show user an error message
+        console.error("Failed to load", filename, e);
+        return;
+    }
+
+    geometry.center();
+    geometry.computeVertexNormals();
+    currentMesh.geometry.dispose();
+    currentMesh.geometry = geometry;
+    fitView(geometry);
+}
+
+async function initCanvas() {
+    scene = new THREE.Scene();
     scene.background = new THREE.Color(V_BG);
 
-    const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
     camera.position.set(20, 15, 20);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -99,25 +164,27 @@ async function initCanvas() {
     renderer.setPixelRatio(window.devicePixelRatio);
     document.body.prepend(renderer.domElement);
 
-    const controls = new OrbitControls(camera, renderer.domElement);
+    controls = new OrbitControls(camera, renderer.domElement);
     controls.update();
 
-    scene.add(new THREE.AmbientLight(V_DARK, 2));
-    const directionalLight = new THREE.DirectionalLight(V_FG, 2);
-    directionalLight.position.set(10, 20, 15);
-    scene.add(directionalLight);
+    scene.add(new THREE.HemisphereLight(V_FG, V_BG, 1));
 
-    const loader = new STLLoader();
-    const geometry = loader.parse(output);
-    geometry.center();
-    geometry.computeVertexNormals();
+    const keyLight = new THREE.DirectionalLight(V_FG, 2);
+    keyLight.position.set(10, 20, 15);
+    scene.add(keyLight);
+
+    const fillLight = new THREE.DirectionalLight(V_FG, 0.8);
+    fillLight.position.set(-10, -5, -15);
+    scene.add(fillLight);
 
     const material = new THREE.MeshStandardMaterial({
         color: V_BLUE,
         flatShading: false,
     });
-    const mesh = new THREE.Mesh(geometry, material);
+    const mesh = new THREE.Mesh(new THREE.BufferGeometry(), material);
     scene.add(mesh);
+    currentMesh = mesh;
+    await loadFile(DEFAULT_MODEL);
 
     const [cube, cubeScene, cubeCamera] = makeOrientationCube(renderer);
 
@@ -481,41 +548,41 @@ function initInspector() {
 // Presets dropdown entries
 const PRESETS: Record<string, Record<string, string>> = {
     'Platonic solids': {
-        'Tetrahedron': 'Tetrahedron.txt',
-        'Cube': 'Cube.txt',
-        'Octahedron': 'Octahedron.txt',
-        'Dodecahedron': 'Dodecahedron.txt',
-        'Icosahedron': 'Icosahedron.txt',
+        'Tetrahedron': 'Tetrahedron.obj',
+        'Cube': 'Cube.obj',
+        'Octahedron': 'Octahedron.obj',
+        'Dodecahedron': 'Dodecahedron.obj',
+        'Icosahedron': 'Icosahedron.obj',
     },
     'Archimedean solids': {
-        'Truncated Tetrahedron': 'TruncatedTetrahedron.txt',
-        'Cuboctahedron': 'Cuboctahedron.txt',
-        'Truncated Cube': 'TruncatedCube.txt',
-        'Truncated Octahedron': 'TruncatedOctahedron.txt',
-        'Rhombicuboctahedron': 'Rhombicuboctahedron.txt',
-        'Truncated Cuboctahedron': 'TruncatedCuboctahedron.txt',
-        'Snub Cube (laevo)': 'LsnubCube.txt',
-        'Icosidodecahedron': 'Icosidodecahedron.txt',
-        'Truncated Dodecahedron': 'TruncatedDodecahedron.txt',
-        'Truncated Icosahedron': 'TruncatedIcosahedron.txt',
-        'Rhombicosidodecahedron': 'Rhombicosidodecahedron.txt',
-        'Truncated Icosidodecahedron': 'TruncatedIcosidodecahedron.txt',
-        'Snub Dodecahedron (laevo)': 'LsnubDodecahedron.txt',
+        'Truncated Tetrahedron': 'TruncatedTetrahedron.obj',
+        'Cuboctahedron': 'Cuboctahedron.obj',
+        'Truncated Cube': 'TruncatedCube.obj',
+        'Truncated Octahedron': 'TruncatedOctahedron.obj',
+        'Rhombicuboctahedron': 'Rhombicuboctahedron.obj',
+        'Truncated Cuboctahedron': 'TruncatedCuboctahedron.obj',
+        'Snub Cube (laevo)': 'LsnubCube.obj',
+        'Icosidodecahedron': 'Icosidodecahedron.obj',
+        'Truncated Dodecahedron': 'TruncatedDodecahedron.obj',
+        'Truncated Icosahedron': 'TruncatedIcosahedron.obj',
+        'Rhombicosidodecahedron': 'Rhombicosidodecahedron.obj',
+        'Truncated Icosidodecahedron': 'TruncatedIcosidodecahedron.obj',
+        'Snub Dodecahedron (laevo)': 'LsnubDodecahedron.obj',
     },
     'Catalan solids': {
-        'Triakis Tetrahedron': 'TriakisTetrahedron.txt',
-        'Rhombic Dodecahedron': 'RhombicDodecahedron.txt',
-        'Triakis Octahedron': 'TriakisOctahedron.txt',
-        'Tetrakis Hexahedron': 'TetrakisHexahedron.txt',
-        'Deltoidal Icositetrahedron': 'DeltoidalIcositetrahedron.txt',
-        'Disdyakis Dodecahedron': 'DisdyakisDodecahedron.txt',
-        'Pentagonal Icositetrahedron (laevo)': 'LpentagonalIcositetrahedron.txt',
-        'Rhombic Triacontahedron': 'RhombicTriacontahedron.txt',
-        'Triakis Icosahedron': 'TriakisIcosahedron.txt',
-        'Pentakis Dodecahedron': 'PentakisDodecahedron.txt',
-        'Deltoidal Hexecontahedron': 'DeltoidalHexecontahedron.txt',
-        'Disdyakis Triacontahedron': 'DisdyakisTriacontahedron.txt',
-        'Pentagonal Hexecontahedron (laevo)': 'LpentagonalHexecontahedron.txt',
+        'Triakis Tetrahedron': 'TriakisTetrahedron.obj',
+        'Rhombic Dodecahedron': 'RhombicDodecahedron.obj',
+        'Triakis Octahedron': 'TriakisOctahedron.obj',
+        'Tetrakis Hexahedron': 'TetrakisHexahedron.obj',
+        'Deltoidal Icositetrahedron': 'DeltoidalIcositetrahedron.obj',
+        'Disdyakis Dodecahedron': 'DisdyakisDodecahedron.obj',
+        'Pentagonal Icositetrahedron (laevo)': 'LpentagonalIcositetrahedron.obj',
+        'Rhombic Triacontahedron': 'RhombicTriacontahedron.obj',
+        'Triakis Icosahedron': 'TriakisIcosahedron.obj',
+        'Pentakis Dodecahedron': 'PentakisDodecahedron.obj',
+        'Deltoidal Hexecontahedron': 'DeltoidalHexecontahedron.obj',
+        'Disdyakis Triacontahedron': 'DisdyakisTriacontahedron.obj',
+        'Pentagonal Hexecontahedron (laevo)': 'LpentagonalHexecontahedron.obj',
     },
     'Misc': {
         'Stanford Bunny': 'Bunny-LowPoly.stl',
@@ -524,7 +591,7 @@ const PRESETS: Record<string, Record<string, string>> = {
 };
 
 function initPresetsMenu() {
-    const presets_btn = document.getElementById('presets-btn')!;
+    const presets_button = document.getElementById('presets-btn')!;
     const presets_menu = document.getElementById('presets-menu')!;
 
     for (const [category, solids] of Object.entries(PRESETS)) {
@@ -538,18 +605,19 @@ function initPresetsMenu() {
             item.textContent = label;
             item.dataset.file = file;
             item.className = 'block w-full cursor-pointer text-left font-mono text-xs px-3 py-1 text-v-fg hover:bg-v-blue hover:text-v-dark';
+            item.addEventListener('click', () => { void loadFile(file); });
             presets_menu.appendChild(item);
         }
     }
 
-    presets_btn.addEventListener('click', (e) => {
+    presets_button.addEventListener('click', (e) => {
         e.stopPropagation();
         presets_menu.classList.toggle('hidden');
     });
 
     // Close the menu when clicking outside it or selecting an item.
     document.addEventListener('click', (e) => {
-        if (!presets_menu.contains(e.target as Node) && e.target !== presets_btn) {
+        if (!presets_menu.contains(e.target as Node) && e.target !== presets_button) {
             presets_menu.classList.add('hidden');
         }
     });
@@ -562,10 +630,10 @@ function initPresetsMenu() {
 }
 
 async function init() {
+    await initCanvas();
     initSidebar();
     initInspector();
     initPresetsMenu();
-    await initCanvas();
 }
 
 init();
