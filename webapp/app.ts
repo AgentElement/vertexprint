@@ -1,8 +1,8 @@
 import * as THREE from "three";
-import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
-import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js";
-import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
+import { STLLoader } from "three/addons/loaders/STLLoader.js";
+import { OBJLoader } from "three/addons/loaders/OBJLoader.js";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 
 const DATA_DIR = "data/";
 const DEFAULT_MODEL = "DisdyakisTriacontahedron.obj";
@@ -119,26 +119,25 @@ function fitView(geometry: THREE.BufferGeometry) {
     controls.update();
 }
 
-async function loadFile(filename: string) {
+// Load and display geometry. The file extension determines how `data` is
+// parsed.
+function loadGeometry(name: string, data: ArrayBuffer) {
     if (!currentMesh) return;
-    const lower = filename.toLowerCase();
-    let url: string;
     let geometry: THREE.BufferGeometry;
     try {
-        if (lower.endsWith(".stl")) {
-            url = DATA_DIR + filename;
-            const buf = await fetch(url).then((r) => r.arrayBuffer());
-            geometry = new STLLoader().parse(buf);
-        } else if (lower.endsWith(".obj")) {
-            url = DATA_DIR + filename;
-            const text = await fetch(url).then((r) => r.text());
-            geometry = geometryFromObj(text);
-        } else {
-            return;
-        }
+        const isObj = name.toLowerCase().endsWith(".obj");
+        geometry = isObj
+            ? geometryFromObj(new TextDecoder().decode(data))
+            : new STLLoader().parse(data);
     } catch (e) {
         // TODO: show user an error message
-        console.error("Failed to load", filename, e);
+        console.error("Failed to load", name, e);
+        return;
+    }
+
+    const count = geometry.attributes.position?.count ?? 0;
+    if (count === 0) {
+        console.error("Failed to load", name, "malformed file: no geometry parsed");
         return;
     }
 
@@ -147,6 +146,18 @@ async function loadFile(filename: string) {
     currentMesh.geometry.dispose();
     currentMesh.geometry = geometry;
     fitView(geometry);
+}
+
+// Load a preset.
+async function loadFile(filename: string) {
+    const data = await fetch(DATA_DIR + filename).then((r) => r.arrayBuffer())
+    return loadGeometry(filename, data);
+}
+
+// Load a file selected through the upload button.
+async function loadUserFile(file: File) {
+    const data = await file.arrayBuffer();
+    return loadGeometry(file.name, data);
 }
 
 async function initCanvas() {
@@ -591,7 +602,7 @@ const PRESETS: Record<string, Record<string, string>> = {
 };
 
 function initPresetsMenu() {
-    const presets_button = document.getElementById('presets-btn')!;
+    const presets_button = document.getElementById('presets-button')!;
     const presets_menu = document.getElementById('presets-menu')!;
 
     for (const [category, solids] of Object.entries(PRESETS)) {
@@ -629,11 +640,26 @@ function initPresetsMenu() {
     });
 }
 
+function initUploadButton() {
+    const button = document.getElementById('upload-button')!;
+    button.addEventListener('click', () => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.stl,.obj';
+        input.addEventListener('change', () => {
+            const file = input.files?.[0];
+            if (file) void loadUserFile(file);
+        });
+        input.click();
+    });
+}
+
 async function init() {
     await initCanvas();
     initSidebar();
     initInspector();
     initPresetsMenu();
+    initUploadButton();
 }
 
 init();
