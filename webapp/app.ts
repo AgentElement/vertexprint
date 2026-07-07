@@ -82,7 +82,7 @@ function makeOrientationCube(renderer: THREE.WebGLRenderer):
 }
 
 // Canvas logic. Placeholder. ---
-async function init() {
+async function initCanvas() {
     const output = await fetch("cube.stl").then((res) => res.arrayBuffer());
 
     const scene = new THREE.Scene();
@@ -157,9 +157,6 @@ async function init() {
         renderer.setSize(window.innerWidth, window.innerHeight);
     });
 }
-
-init();
-
 
 // Runtime page construction ---
 
@@ -300,10 +297,8 @@ const TW_CLASS = {
     select: 'w-full font-mono text-[11px] text-v-fg bg-black border border-v-border px-1 py-0.5 focus:outline-none focus:border-v-blue',
 };
 
-const sidebar = document.getElementById('sidebar')!;
-const inspector = document.getElementById('inspector')!;
 const values: Record<string, number | string> = {};
-const rows = new Map<string, HTMLElement>();
+const sidebar_rows = new Map<string, HTMLElement>();
 
 type SliderRow = {
     row: HTMLElement;
@@ -347,11 +342,11 @@ function enforceSelects() {
         if (param.kind === 'select' && param.reveal) {
             const shown = param.reveal(String(values[param.name]));
             if (shown)
-                rows.get(shown)!.style.display = '';
+                sidebar_rows.get(shown)!.style.display = '';
             for (const o of param.options) {
                 const r = param.reveal(o.value);
                 if (r && o.value !== String(values[param.name]))
-                    rows.get(r)!.style.display = 'none';
+                    sidebar_rows.get(r)!.style.display = 'none';
             }
         }
     }
@@ -385,95 +380,103 @@ function syncSelect(r: SelectRow) {
     });
 }
 
-// Initialize sidebar input fields
-const opts = document.getElementById('sidebar-opts')!;
-for (const param of OPTIONS) {
-    values[param.name] = param.value;
-    let row: HTMLElement;
-    if (param.kind === 'slider') {
-        row = makeSlider(param);
-        syncSlider({
-            row,
-            slider: row.querySelector('.dh-slider')!,
-            num: row.querySelector('input[type="number"]')!,
-            param
-        });
-    } else {
-        row = makeSelect(param);
-        syncSelect({
-            row,
-            sel: row.querySelector('select')!,
-            param
-        });
+function initSidebar() {
+    const sidebar = document.getElementById('sidebar')!;
+    // Initialize sidebar input fields
+    const opts = document.getElementById('sidebar-opts')!;
+    for (const param of OPTIONS) {
+        values[param.name] = param.value;
+        let row: HTMLElement;
+        if (param.kind === 'slider') {
+            row = makeSlider(param);
+            syncSlider({
+                row,
+                slider: row.querySelector('.dh-slider')!,
+                num: row.querySelector('input[type="number"]')!,
+                param
+            });
+        } else {
+            row = makeSelect(param);
+            syncSelect({
+                row,
+                sel: row.querySelector('select')!,
+                param
+            });
+        }
+        sidebar_rows.set(param.name, row);
+        opts.appendChild(row);
     }
-    rows.set(param.name, row);
-    opts.appendChild(row);
+    enforceSelects();
+
+    // Open/close sidebar
+    const sidebar_reopen = document.getElementById('sidebar-reopen')!;
+    document.getElementById('sidebar-close')!.addEventListener('click', () => {
+        sidebar.style.display = 'none';
+        sidebar_reopen.style.display = 'flex';
+    });
+    sidebar_reopen.addEventListener('click', () => {
+        sidebar.style.display = '';
+        sidebar_reopen.style.display = 'none';
+    });
+
+    // Resize sidebar
+    const sidebar_resizer = document.getElementById('sidebar-resizer')!;
+    let dragging = false, startX = 0, startW = 0;
+    sidebar_resizer.addEventListener('mousedown', (e) => {
+        dragging = true;
+        sidebar_resizer.classList.add('dragging');
+        startX = e.clientX;
+        startW = sidebar.offsetWidth;
+        document.body.style.userSelect = 'none';
+        e.preventDefault();
+    });
+    window.addEventListener('mousemove', (e) => {
+        if (!dragging) return;
+        const w = clamp(startW + (e.clientX - startX), 160, window.innerWidth * 0.5);
+        sidebar.style.width = w + 'px';
+        sidebar.style.maxWidth = 'none';
+    });
+    window.addEventListener('mouseup', () => {
+        dragging = false;
+        sidebar_resizer.classList.remove('dragging');
+        document.body.style.userSelect = '';
+    });
 }
-enforceSelects();
 
-// Open/close sidebar
-const sidebar_reopen = document.getElementById('sidebar-reopen')!;
-document.getElementById('sidebar-close')!.addEventListener('click', () => {
-    sidebar.style.display = 'none';
-    sidebar_reopen.style.display = 'flex';
-});
-sidebar_reopen.addEventListener('click', () => {
-    sidebar.style.display = '';
-    sidebar_reopen.style.display = 'none';
-});
 
-// Resize sidebar
-const sidebar_resizer = document.getElementById('sidebar-resizer')!;
-let dragging = false, startX = 0, startW = 0;
-sidebar_resizer.addEventListener('mousedown', (e) => {
-    dragging = true;
-    sidebar_resizer.classList.add('dragging');
-    startX = e.clientX;
-    startW = sidebar.offsetWidth;
-    document.body.style.userSelect = 'none';
-    e.preventDefault();
-});
-window.addEventListener('mousemove', (e) => {
-    if (!dragging) return;
-    const w = clamp(startW + (e.clientX - startX), 160, window.innerWidth * 0.5);
-    sidebar.style.width = w + 'px';
-    sidebar.style.maxWidth = 'none';
-});
-window.addEventListener('mouseup', () => {
-    dragging = false;
-    sidebar_resizer.classList.remove('dragging');
-    document.body.style.userSelect = '';
-});
+function initInspector() {
+    const inspector = document.getElementById('inspector')!;
 
-// Switch tabs in inspector panel
-document.querySelectorAll<HTMLButtonElement>('#inspector-tabs .inspector-tab').forEach((tab) => {
-    tab.addEventListener('click', () => {
-        const name = tab.dataset.tab;
-        document.querySelectorAll<HTMLButtonElement>('#inspector-tabs .inspector-tab').forEach((t) => {
-            const active = t.dataset.tab === name;
-            t.classList.toggle('text-v-blue', active);
-            t.classList.toggle('border-v-blue', active);
-            t.classList.toggle('bg-v-panel', active);
-            t.classList.toggle('text-v-fg', !active);
-            t.classList.toggle('border-transparent', !active);
-        });
-        document.querySelectorAll<HTMLElement>('.inspector-pane').forEach((p) => {
-            p.style.display = p.dataset.pane === name ? '' : 'none';
+    // Switch tabs in inspector panel
+    document.querySelectorAll<HTMLButtonElement>('#inspector-tabs .inspector-tab').forEach((tab) => {
+        tab.addEventListener('click', () => {
+            const name = tab.dataset.tab;
+            document.querySelectorAll<HTMLButtonElement>('#inspector-tabs .inspector-tab').forEach((t) => {
+                const active = t.dataset.tab === name;
+                t.classList.toggle('text-v-blue', active);
+                t.classList.toggle('border-v-blue', active);
+                t.classList.toggle('bg-v-panel', active);
+                t.classList.toggle('text-v-fg', !active);
+                t.classList.toggle('border-transparent', !active);
+            });
+            document.querySelectorAll<HTMLElement>('.inspector-pane').forEach((p) => {
+                p.style.display = p.dataset.pane === name ? '' : 'none';
+            });
         });
     });
-});
 
 
-// Open/close inspector
-const inspector_reopen = document.getElementById('inspector-reopen')!;
-document.getElementById('inspector-close')!.addEventListener('click', () => {
-    inspector.style.display = 'none';
-    inspector_reopen.style.display = 'flex';
-});
-inspector_reopen.addEventListener('click', () => {
-    inspector.style.display = '';
-    inspector_reopen.style.display = 'none';
-});
+    // Open/close inspector
+    const inspector_reopen = document.getElementById('inspector-reopen')!;
+    document.getElementById('inspector-close')!.addEventListener('click', () => {
+        inspector.style.display = 'none';
+        inspector_reopen.style.display = 'flex';
+    });
+    inspector_reopen.addEventListener('click', () => {
+        inspector.style.display = '';
+        inspector_reopen.style.display = 'none';
+    });
+}
 
 // Presets dropdown entries
 const PRESETS: Record<string, Record<string, string>> = {
@@ -520,38 +523,49 @@ const PRESETS: Record<string, Record<string, string>> = {
     },
 };
 
-const presets_btn = document.getElementById('presets-btn')!;
-const presets_menu = document.getElementById('presets-menu')!;
+function initPresetsMenu() {
+    const presets_btn = document.getElementById('presets-btn')!;
+    const presets_menu = document.getElementById('presets-menu')!;
 
-for (const [category, solids] of Object.entries(PRESETS)) {
-    const header = document.createElement('p');
-    header.textContent = category;
-    header.className = 'font-mono text-xs px-3 pt-2 pb-1 text-v-fg/60 border-b border-v-border min-w-full';
-    presets_menu.appendChild(header);
-    for (const [label, file] of Object.entries(solids)) {
-        const item = document.createElement('button');
-        item.type = 'button';
-        item.textContent = label;
-        item.dataset.file = file;
-        item.className = 'block w-full cursor-pointer text-left font-mono text-xs px-3 py-1 text-v-fg hover:bg-v-blue hover:text-v-dark';
-        presets_menu.appendChild(item);
+    for (const [category, solids] of Object.entries(PRESETS)) {
+        const header = document.createElement('p');
+        header.textContent = category;
+        header.className = 'font-mono text-xs px-3 pt-2 pb-1 text-v-fg/60 border-b border-v-border min-w-full';
+        presets_menu.appendChild(header);
+        for (const [label, file] of Object.entries(solids)) {
+            const item = document.createElement('button');
+            item.type = 'button';
+            item.textContent = label;
+            item.dataset.file = file;
+            item.className = 'block w-full cursor-pointer text-left font-mono text-xs px-3 py-1 text-v-fg hover:bg-v-blue hover:text-v-dark';
+            presets_menu.appendChild(item);
+        }
     }
+
+    presets_btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        presets_menu.classList.toggle('hidden');
+    });
+
+    // Close the menu when clicking outside it or selecting an item.
+    document.addEventListener('click', (e) => {
+        if (!presets_menu.contains(e.target as Node) && e.target !== presets_btn) {
+            presets_menu.classList.add('hidden');
+        }
+    });
+    presets_menu.addEventListener('click', (e) => {
+        const target = e.target as HTMLElement;
+        if (target.tagName === 'BUTTON') {
+            presets_menu.classList.add('hidden');
+        }
+    });
 }
 
-presets_btn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    presets_menu.classList.toggle('hidden');
-});
+async function init() {
+    initSidebar();
+    initInspector();
+    initPresetsMenu();
+    await initCanvas();
+}
 
-// Close the menu when clicking outside it or selecting an item.
-document.addEventListener('click', (e) => {
-    if (!presets_menu.contains(e.target as Node) && e.target !== presets_btn) {
-        presets_menu.classList.add('hidden');
-    }
-});
-presets_menu.addEventListener('click', (e) => {
-    const target = e.target as HTMLElement;
-    if (target.tagName === 'BUTTON') {
-        presets_menu.classList.add('hidden');
-    }
-});
+init();
