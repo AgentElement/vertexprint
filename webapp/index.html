@@ -5,6 +5,7 @@
 		<meta charset="UTF-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1.0">
 		<link href="a.css" rel="stylesheet">
+		<script type="module" src="a.js"></script>
 	</head>
 
 	<body>
@@ -16,21 +17,21 @@
 					<div id="sidebar-title" class="basis-full">
 						<p class="font-pixel text-2xl p-2">Vertexprint</p>
 					</div>
-					<div id="sidebar-close" class="cursor-pointer m-2 w-9 h-9 shrink-0 flex items-center justify-center text-v-fg hover:bg-v-blue hover:text-v-dark text-xl">
+					<div id="sidebar-close" title="Close sidebar" class="cursor-pointer m-2 w-9 h-9 shrink-0 flex items-center justify-center text-v-fg hover:bg-v-blue hover:text-v-dark text-xl">
 						<span class="icon-[pixelarticons--close]"></span>
 					</div>
 				</div>
 				<div id="sidebar-opts" class="flex-1 overflow-y-auto divide-y divide-v-border *:bg-v-panel"></div>
-				<div id="construct-button" class="cursor-pointer shrink-0 bg-v-bg text-v-green border-t border-v-border hover:bg-v-green hover:text-v-dark">
+				<div id="construct-button" title="Vertexprint your structure" class="cursor-pointer shrink-0 bg-v-bg text-v-green border-t border-v-border hover:bg-v-green hover:text-v-dark">
 					<p class="font-pixel text-2xl p-3 text-center">Construct</p>
 				</div>
 			</aside>
 			<!-- Sidebar reopen button -->
-			<div id="sidebar-reopen" title="Show sidebar" class="fixed top-2 left-2 z-20 w-9 h-9 flex items-center justify-center bg-v-dark text-v-fg cursor-pointer text-xl hover:bg-v-blue hover:text-v-dark shadow-md" style="display:none">
+			<div id="sidebar-reopen" title="Show sidebar" class="fixed top-2 left-2 z-20 w-9 h-9 flex items-center justify-center bg-v-dark text-v-fg cursor-pointer text-xl hover:bg-v-blue hover:text-v-dark border border-v-border" style="display:none">
 				<span class="icon-[pixelarticons--menu]"></span>
 			</div>
 			<!-- Floating artifacts panel -->
-			<div id="inspector" class="fixed top-2 right-2 z-20 w-64 bg-v-dark text-v-fg shadow-md flex flex-col">
+			<div id="inspector" class="fixed top-2 right-2 z-20 w-64 bg-v-dark text-v-fg border border-v-border flex flex-col">
 				<div id="inspector-tabs" class="flex border-b border-v-border">
 					<button type="button" data-tab="vertices" class="inspector-tab flex-1 cursor-pointer font-pixel text-base py-1 text-v-blue border-b border-v-blue bg-v-panel">
 						vertices
@@ -38,7 +39,7 @@
 					<button type="button" data-tab="edges" class="inspector-tab flex-1 cursor-pointer font-pixel text-base py-1 text-v-fg border-b border-transparent hover:bg-v-panel">
 						edges
 					</button>
-					<div id="inspector-close" class="cursor-pointer w-9 h-9 shrink-0 flex items-center justify-center text-v-fg hover:bg-v-blue hover:text-v-dark text-xl">
+					<div id="inspector-close" title="Close inspector" class="cursor-pointer w-9 h-9 shrink-0 flex items-center justify-center text-v-fg hover:bg-v-blue hover:text-v-dark text-xl">
 						<span class="icon-[pixelarticons--close]"></span>
 					</div>
 				</div>
@@ -52,22 +53,26 @@
 				</div>
 			</div>
 			<!-- Inspector reopen button -->
-			<div id="inspector-reopen" title="Show inspector" class="fixed top-2 right-2 z-20 w-9 h-9 flex items-center justify-center bg-v-dark text-v-fg cursor-pointer text-xl hover:bg-v-blue hover:text-v-dark shadow-md" style="display:none">
+			<div id="inspector-reopen" title="Show inspector" class="fixed top-2 right-2 z-20 w-9 h-9 flex items-center justify-center bg-v-dark text-v-fg cursor-pointer text-xl hover:bg-v-blue hover:text-v-dark border border-v-border" style="display:none">
 				<span class="icon-[pixelarticons--chevron-left]"></span>
 			</div>
 			<!-- Center pill -->
-			<div id="menu-pill" class="fixed top-2 left-1/2 -translate-x-1/2 z-20 flex items-center bg-v-dark shadow-md">
-				<button type="button" title="Upload" class="cursor-pointer w-9 h-9 flex items-center justify-center text-v-fg text-xl hover:bg-v-blue hover:text-v-dark">
+			<div id="menu-pill" class="fixed top-2 left-1/2 -translate-x-1/2 z-20 flex items-center bg-v-dark border border-v-border">
+				<button type="button" title="Upload files" class="cursor-pointer pl-2 h-9 flex items-center justify-center text-v-fg text-xl hover:bg-v-blue hover:text-v-dark">
 					<span class="icon-[pixelarticons--upload]"></span>
+					<span class="font-pixel text-sm p-2">upload</span>
 				</button>
 				<div class="relative">
-					<button type="button" id="presets-btn" title="Open Presets" class="cursor-pointer h-9 flex items-center justify-center text-v-fg text-xl hover:bg-v-blue hover:text-v-dark">
+					<button type="button" id="presets-btn" title="Open Presets" class="cursor-pointer pl-2 h-9 flex items-center justify-center text-v-fg text-xl hover:bg-v-blue hover:text-v-dark">
+						<span class="icon-[pixelarticons--box]"></span>
 						<span class="font-pixel text-sm p-2">presets</span>
 					</button>
-					<div id="presets-menu" class="hidden absolute top-full left-0 mt-1 min-w-64 w-max bg-v-dark border border-v-border shadow-md z-30"></div>
+					<!-- Preset menu. Dynamically populated -->
+					<div id="presets-menu" class="hidden absolute top-full left-0 mt-1 min-w-64 w-max bg-v-dark border border-v-border z-30"></div>
 				</div>
-				<button type="button" title="Download" class="cursor-pointer w-9 h-9 flex items-center justify-center text-v-fg text-xl hover:bg-v-blue hover:text-v-dark">
+				<button type="button" title="Download generated artifacts. You must generate artifacts before a download." class="cursor-pointer pl-2 h-9 flex items-center justify-center text-v-fg/70 border-r border-v-border text-xl">
 					<span class="icon-[pixelarticons--download]"></span>
+					<span class="font-pixel text-sm p-2">download</span>
 				</button>
 				<button type="button" title="Help" class="cursor-pointer w-9 h-9 flex items-center justify-center text-v-fg text-xl hover:bg-v-blue hover:text-v-dark">
 					<span class="icon-[pixelarticons--info-box]"></span>
@@ -76,7 +81,6 @@
 					<span class="icon-[pixelarticons--github]"></span>
 				</button>
 			</div>
-			<script type="module" src="a.js"></script>
 		</div>
 	</body>
 </html>

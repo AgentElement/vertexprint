@@ -119,11 +119,7 @@ async function init() {
     const mesh = new THREE.Mesh(geometry, material);
     scene.add(mesh);
 
-
-    const orientationCubeTuple = makeOrientationCube(renderer);
-    const cube = orientationCubeTuple[0];
-    const cubeScene = orientationCubeTuple[1];
-    const cubeCamera = orientationCubeTuple[2];
+    const [cube, cubeScene, cubeCamera] = makeOrientationCube(renderer);
 
     const ORENT_CUBE_SIZE = 240;
     renderer.autoClear = false;
