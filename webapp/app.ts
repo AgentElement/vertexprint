@@ -3,6 +3,7 @@ import { STLLoader } from "three/addons/loaders/STLLoader.js";
 import { OBJLoader } from "three/addons/loaders/OBJLoader.js";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
+import { VertexPrintParams, vertexPrint } from "./core"
 
 const DATA_DIR = "data/";
 const DEFAULT_MODEL = "DisdyakisTriacontahedron.obj";
@@ -238,9 +239,16 @@ async function initCanvas() {
 
 // Runtime page construction ---
 
+type NumberKeys = {
+    [K in keyof VertexPrintParams]: VertexPrintParams[K] extends number ? K : never
+}[keyof VertexPrintParams];
+type StringKeys = {
+    [K in keyof VertexPrintParams]: VertexPrintParams[K] extends string ? K : never
+}[keyof VertexPrintParams];
+
 type SliderParam = {
     kind: 'slider';
-    name: string;
+    name: NumberKeys;
     label: string;
     desc: string;
     min: number;
@@ -252,7 +260,7 @@ type SliderParam = {
 
 type SelectParam = {
     kind: 'select';
-    name: string;
+    name: StringKeys;
     label: string;
     desc: string;
     value: string;
@@ -264,7 +272,7 @@ type Param = SliderParam | SelectParam;
 const OPTIONS: Param[] = [
     {
         kind: 'slider',
-        name: 'edge_diameter',
+        name: 'edgeDiameter',
         label: 'Rod diameter',
         desc: 'Diameter of your dowel rods.',
         min: 0,
@@ -275,7 +283,7 @@ const OPTIONS: Param[] = [
     },
     {
         kind: 'slider',
-        name: 'diameter_tolerance_fit',
+        name: 'diameterTolerance',
         label: 'Diameter tolerance',
         desc: 'Additional tolerance added to the diameter.\nI recommend adding about 12% of your diameter for wood dowel rods, and 5% for metal',
         min: 0,
@@ -286,7 +294,7 @@ const OPTIONS: Param[] = [
     },
     {
         kind: 'slider',
-        name: 'diameter_taper_fit',
+        name: 'diameterTaper',
         label: 'Diameter taper',
         desc: 'The rod holder diameter decreases by this amount. A small taper is helpful to account for small amounts of unevenness in the diameters of your dowel rods, particularly for wood dowel rods',
         min: 0,
@@ -297,7 +305,7 @@ const OPTIONS: Param[] = [
     },
     {
         kind: 'slider',
-        name: 'wall_thickness',
+        name: 'wallThickness',
         label: 'Wall thickness',
         desc: 'Thickness of the tube walls.',
         min: 0,
@@ -308,7 +316,7 @@ const OPTIONS: Param[] = [
     },
     {
         kind: 'slider',
-        name: 'scale_factor',
+        name: 'scale',
         label: 'Scale',
         desc: 'Scale factor. Vertexprinted objects are typically larger than than the original object, so this starts out large.',
         min: 0,
@@ -319,7 +327,7 @@ const OPTIONS: Param[] = [
     },
     {
         kind: 'slider',
-        name: 'rod_inset',
+        name: 'rodInset',
         label: 'Tube depth',
         desc: 'The depth of each tube',
         min: 0,
@@ -330,7 +338,7 @@ const OPTIONS: Param[] = [
     },
     {
         kind: 'slider',
-        name: 'max_printer_overhang_angle',
+        name: 'maxPrinterOverhangAngle',
         label: 'Maximum overhang angle',
         desc: 'The maximum overhang angle your printer allows',
         min: 0,
@@ -341,7 +349,7 @@ const OPTIONS: Param[] = [
     },
     {
         kind: 'select',
-        name: 'offset_type',
+        name: 'offsetType',
         label: 'Offset type',
         desc: 'placeholder', // complicated explanation
         value: 'auto_global',
@@ -350,11 +358,11 @@ const OPTIONS: Param[] = [
             { value: 'auto_global', label: 'Auto (global)' },
             { value: 'auto_per_vertex', label: 'Auto (per-vertex)' },
         ],
-        reveal: (v) => v === 'fixed' ? 'offset' : null,
+        reveal: (v) => v === 'fixed' ? 'manualOffset' : null,
     },
     {
         kind: 'slider',
-        name: 'offset',
+        name: 'manualOffset',
         label: 'Offset',
         desc: 'placeholder', // see comment above
         min: 0,
@@ -375,7 +383,7 @@ const TW_CLASS = {
     select: 'w-full font-mono text-[11px] text-v-fg bg-black border border-v-border px-1 py-0.5 focus:outline-none focus:border-v-blue',
 };
 
-const values: Record<string, number | string> = {};
+const values = new VertexPrintParams();
 const sidebar_rows = new Map<string, HTMLElement>();
 
 type SliderRow = {
@@ -418,12 +426,13 @@ function makeSelect(param: SelectParam): HTMLElement {
 function enforceSelects() {
     for (const param of OPTIONS) {
         if (param.kind === 'select' && param.reveal) {
-            const shown = param.reveal(String(values[param.name]));
+            const currentVal = String(values[param.name]);
+            const shown = param.reveal(currentVal);
             if (shown)
                 sidebar_rows.get(shown)!.style.display = '';
             for (const o of param.options) {
                 const r = param.reveal(o.value);
-                if (r && o.value !== String(values[param.name]))
+                if (r && o.value !== currentVal)
                     sidebar_rows.get(r)!.style.display = 'none';
             }
         }
@@ -463,9 +472,9 @@ function initSidebar() {
     // Initialize sidebar input fields
     const opts = document.getElementById('sidebar-opts')!;
     for (const param of OPTIONS) {
-        values[param.name] = param.value;
         let row: HTMLElement;
         if (param.kind === 'slider') {
+            values[param.name] = param.value;
             row = makeSlider(param);
             syncSlider({
                 row,
@@ -474,6 +483,7 @@ function initSidebar() {
                 param
             });
         } else {
+            values[param.name] = param.value;
             row = makeSelect(param);
             syncSelect({
                 row,
