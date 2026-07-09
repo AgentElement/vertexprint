@@ -352,11 +352,12 @@ const OPTIONS: Param[] = [
         name: 'offsetType',
         label: 'Offset type',
         desc: 'placeholder', // complicated explanation
-        value: 'auto_global',
+        value: 'auto_per_edge',
         options: [
             { value: 'fixed', label: 'Manual' },
             { value: 'auto_global', label: 'Auto (global)' },
             { value: 'auto_per_vertex', label: 'Auto (per-vertex)' },
+            { value: 'auto_per_edge', label: 'Auto (per-edge)' },
         ],
         reveal: (v) => v === 'fixed' ? 'manualOffset' : null,
     },
