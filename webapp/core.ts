@@ -250,7 +250,217 @@ class VertexFigure {
     }
 }
 
+type EdgeField = { length: number; offsetLength: number; name: number };
+
 class Polyhedron {
+    name: string;
+    faces: string[][];
+    vertices: Matrix;
+    options: VertexPrintParams;
+
+    edges: Map<string, EdgeField>;
+    vertexFigures: VertexFigure[];
+    solidOffset: number;
+
+    constructor(
+        name: string,
+        faces: string[][],
+        vertices: Matrix,
+        options: VertexPrintParams,
+    ) {
+        this.name = name;
+        this.faces = faces;
+        this.vertices = vertices;
+        this.options = options;
+
+        this.edges = this.makeEdgelist();
+        this.vertexFigures = this.annotateVertexFigures();
+        this.solidOffset = this.largestOffset();
+        this.computeEdgeLengths();
+        for (const vf of this.vertexFigures) {
+            vf.annotateEdgeNames(this.edges);
+        }
+    }
+
+    averageEdgeLength(): number {
+        if (this.edges.size === 0) {
+            return 0;
+        }
+        let total = 0;
+        for (const e of this.edges.values()) {
+            total += e.length;
+        }
+        return total / this.edges.size;
+    }
+
+    // Largest offset among all vertex figure max offsets
+    largestOffset(): number {
+        if (this.vertexFigures.length === 0) {
+            return 0;
+        }
+        let max = this.vertexFigures[0].vertexOffset;
+        for (let i = 1; i < this.vertexFigures.length; i++) {
+            if (this.vertexFigures[i].vertexOffset > max) {
+                max = this.vertexFigures[i].vertexOffset;
+            }
+        }
+        return max;
+    }
+
+    // Determine offsets to be subtracted from each end of a given edge
+    offsetForEdge(v1: number, v2: number): [number, number] {
+        const vf1 = this.vertexFigures[v1];
+        const vf2 = this.vertexFigures[v2];
+        switch (this.options.offsetType) {
+            case "fixed":
+                return [this.options.manualOffset, this.options.manualOffset];
+            case "auto_per_vertex":
+                return [vf1.vertexOffset, vf2.vertexOffset];
+            case "auto_per_edge": {
+                const i1 = vf1.neighbors.findIndex((n) => n === v2);
+                const i2 = vf2.neighbors.findIndex((n) => n === v1);
+                return [
+                    vf1.halfEdgeOffset[i1],
+                    vf2.halfEdgeOffset[i2],
+                ];
+            }
+            case "auto_global":
+            default:
+                return [this.solidOffset, this.solidOffset];
+        }
+    }
+
+    // rod length = scale * |v1 - v2| - offset(v1, v2) - offset(v2, v1)
+    // value appended to self.edges
+    computeEdgeLengths(): void {
+        let maxDist = 0;
+        for (let i = 0; i < this.vertices.rows; i++) {
+            const d = this.vertices.getRowVector(i).norm();
+            if (d > maxDist) {
+                maxDist = d;
+            }
+        }
+        const scale = this.options.scale / maxDist;
+
+        type KLO = { key: string; length: number; offsetLength: number };
+        const klo: KLO[] = [];
+        for (const key of this.edges.keys()) {
+            const [v1, v2] = key.split(",").map(Number);
+            const [v1_offset, v2_offset] = this.offsetForEdge(v1, v2);
+            const v1_arr = this.vertices.getRowVector(v1);
+            const v2_arr = this.vertices.getRowVector(v2);
+            const length = Matrix.sub(v2_arr, v1_arr).norm();
+            const offsetLength = scale * length - v1_offset - v2_offset;
+            klo.push({ key, length, offsetLength });
+        }
+
+        klo.sort((x, y) => x.offsetLength - y.offsetLength);
+        for (let i = 0; i < klo.length; i++) {
+            const { key, length, offsetLength } = klo[i];
+            this.edges.set(key, { length, offsetLength, name: i });
+        }
+    }
+
+    // Convert facelist into edgelist
+    makeEdgelist(): Map<string, EdgeField> {
+        const edges = new Map<string, EdgeField>();
+        for (const face of this.faces) {
+            for (let k = 0; k < face.length; k++) {
+                const v1 = parseInt(face[k], 10);
+                const v2 = parseInt(face[(k + 1) % face.length], 10);
+                if (Number.isNaN(v1) || Number.isNaN(v2)) {
+                    continue;
+                }
+                if (v1 < this.vertices.rows && v2 < this.vertices.rows) {
+                    const key =
+                        v1 < v2 ? `${v1},${v2}` : `${v2},${v1}`;
+                    if (!edges.has(key)) {
+                        edges.set(key, { length: 0, offsetLength: 0, name: -1 });
+                    }
+                }
+            }
+        }
+        return edges;
+    }
+
+    // Distinct vertex figures should have distinct signatures. Probably.
+    vertexFigureSignature(vecs: Matrix): string {
+        const precision = 100000;
+        const n = vecs.rows;
+        const rows: Matrix[] = [];
+        for (let i = 0; i < n; i++) {
+            rows.push(vecs.getRowVector(i));
+        }
+        const dots: number[] = [];
+        for (let i = 0; i < n; i++) {
+            for (let j = i; j < n; j++) {
+                dots.push(Math.round(rows[i].dot(rows[j]) * precision));
+            }
+        }
+        const triples: number[] = [];
+        for (let i = 0; i < n; i++) {
+            for (let j = 0; j < n; j++) {
+                for (let k = 0; k < n; k++) {
+                    triples.push(
+                        Math.round(cross(rows[i], rows[j]).dot(rows[k]) * precision),
+                    );
+                }
+            }
+        }
+        dots.sort((a, b) => a - b);
+        triples.sort((a, b) => a - b);
+        return dots.join(",") + "|" + triples.join(",");
+    }
+
+    // Construct vertex figure list
+    annotateVertexFigures(): VertexFigure[] {
+        const tags = new Map<string, number>();
+        let tag = 0;
+        const vertexFigures: VertexFigure[] = [];
+
+        for (let i = 0; i < this.vertices.rows; i++) {
+            const neighbors: number[] = [];
+            for (const key of this.edges.keys()) {
+                const [a, b] = key.split(",").map(Number);
+                if (a === i) {
+                    neighbors.push(b);
+                } else if (b === i) {
+                    neighbors.push(a);
+                }
+            }
+            const vertex = this.vertices.getRowVector(i);
+            // Direction vectors from this vertex to each neighbor, normalized.
+            const vecs = new Matrix(
+                neighbors.map((n) => {
+                    const nb = this.vertices.getRowVector(n);
+                    const diff = Matrix.sub(nb, vertex);
+                    const norm = diff.norm();
+                    const f = norm > 0 ? 1 / norm : 1;
+                    return Matrix.mul(diff, f).to1DArray();
+                }),
+            );
+
+            const signature = this.vertexFigureSignature(vecs);
+            if (!tags.has(signature)) {
+                tags.set(signature, tag);
+                tag++;
+            }
+
+            const t = tags.get(signature)!;
+            vertexFigures.push(
+                new VertexFigure(
+                    vertex,
+                    i,
+                    vecs,
+                    neighbors,
+                    t,
+                    this.options,
+                ),
+            );
+        }
+
+        return vertexFigures;
+    }
 }
 
 class OpenScadArgs {
