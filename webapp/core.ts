@@ -27,6 +27,7 @@ function cross(a: Matrix, b: Matrix): Matrix {
     ]);
 }
 
+
 class VertexFigure {
     vertex: Matrix;
     vertexIndex: number;
@@ -101,7 +102,7 @@ class VertexFigure {
     // flag
     planeNormal(): Matrix | null {
         const v = this.vecs.clone();
-        if (this.options.offsetType === "PerHalfEdge") {
+        if (this.options.offsetType === "auto_per_edge") {
             // vecs *= (half_edge_offset[:, None] + rod_inset): scale each row.
             const factors = Matrix.columnVector(
                 this.halfEdgeOffset.map((o) => o + this.options.rodInset),
@@ -187,20 +188,18 @@ class VertexFigure {
         ]);
         const RT = R.transpose();
         const euler = this.matrixToRotation(RT);
-        // rotated = np.array([R @ v for v in self.vecs]) -- apply R to each
-        // row of the N×3 matrix is a single product with R transpose.
         const rotated = this.vecs.mmul(RT);
         return [rotated, euler];
     }
 
     minCosDist(index: number): Matrix {
         const scores: number[] = [];
-        const vIndex = Matrix.columnVector(this.vecs.getRow(index));
+        const vIndex = this.vecs.getRowVector(index);
         for (let i = 0; i < this.vecs.rows; i++) {
             if (i === index) {
                 scores.push(-1000);
             } else {
-                const vi = Matrix.columnVector(this.vecs.getRow(i));
+                const vi = this.vecs.getRowVector(i);
                 scores.push(vIndex.dot(vi) / vi.norm());
             }
         }
@@ -212,7 +211,7 @@ class VertexFigure {
                 maxIndex = i;
             }
         }
-        return Matrix.columnVector(this.vecs.getRow(maxIndex));
+        return this.vecs.getRowVector(maxIndex);
     }
 
     axisOffset(v0: Matrix, v1: Matrix): number {
@@ -232,7 +231,7 @@ class VertexFigure {
     offsetFromSingleVec(index: number): number {
         const closest = this.minCosDist(index);
         return this.axisOffset(
-            Matrix.columnVector(this.vecs.getRow(index)),
+            this.vecs.getRowVector(index),
             closest,
         );
     }
