@@ -100,9 +100,11 @@ class VertexFigure:
         self.vertex_index: int = vertex_index
         self.vecs: np.ndarray = vecs
         self.neighbors: list[int] = neighbors
+        self.tag = tag
+        self.options: GlobalOptions = options
+
         self.std: np.ndarray = vecs
         self.euler: list[float] = [0.0, 0.0, 0.0]
-        self.options: GlobalOptions = options
 
         self.half_edge_offset = self.compute_offsets()
         self.vertex_offset = self.largest_offset()
@@ -114,8 +116,6 @@ class VertexFigure:
             rotated, euler = self.reorient_to(direction * plane_normal)
             self.std = rotated
             self.euler = euler
-
-        self.tag = tag
 
     def annotate_edge_names(self, edges: dict[tuple[int, int], dict[str, Any]]) -> None:
         self.edges = []
@@ -130,11 +130,13 @@ class VertexFigure:
     def normalizable(self) -> bool:
         return self.normal() is not None
 
+    # mean(norm(v for all v in self.vecs))
     def normal(self) -> Optional[np.ndarray]:
         n = np.sum(self.vecs, axis=0)
         norm = np.linalg.norm(n)
         return n / norm if norm > 1e-10 else None
 
+    # Compute the plane of best fit, then return a vector normal to that plane
     def plane_normal(self) -> Optional[np.ndarray]:
         vecs = copy.deepcopy(self.vecs)
         if self.options.offset_type == OffsetType.PER_HALF_EDGE:
@@ -147,6 +149,7 @@ class VertexFigure:
         normal = vh[2]
         return -normal / np.linalg.norm(normal)
 
+    # Convert a rotation matrix to an euler angle triple
     def matrix_to_rotation(self, R: np.ndarray) -> list[float]:
         sy = np.sqrt(R[0, 0] ** 2 + R[1, 0] ** 2)
         singular = sy < 1e-6
@@ -209,6 +212,8 @@ class VertexFigure:
         rotated = np.array([R @ v for v in self.vecs])
         return (rotated, euler)
 
+    # Return a vector in self.vecs with the minimum cosine distance between it
+    # and self.vecs[index]
     def min_cos_dist(self, index: int) -> np.ndarray:
         scores = [
             -1000
@@ -220,6 +225,8 @@ class VertexFigure:
         max_idx = scores.index(max_score)
         return self.vecs[max_idx]
 
+    # Compute the offset distance from the origin required to ensure a single
+    # pair of vectors do not have intersecting tube regions
     def axis_offset(self, v0: np.ndarray, v1: np.ndarray) -> float:
         c = np.dot(v0, v1)
         s = np.linalg.norm(np.cross(v0, v1))
@@ -231,10 +238,13 @@ class VertexFigure:
             return 1e9 if c > 0 else 0
         return max(l_side, l_base)
 
+    # Offset required to ensure that self.vecs[index] does not intesect any
+    # other
     def offset_from_single_vec(self, index: int) -> float:
         closest = self.min_cos_dist(index)
         return self.axis_offset(self.vecs[index], closest)
 
+    # Array of vec offsets
     def compute_offsets(self) -> np.ndarray:
         return np.array([self.offset_from_single_vec(i) for i in range(len(self.vecs))])
 
@@ -255,7 +265,7 @@ class Polyhedron:
         self.vertices: np.ndarray = vertices
         self.options: GlobalOptions = options
 
-        self.edges: dict[tuple[int, int], Any] = self.make_edgelist()
+        self.edges: dict[tuple[int, int], dict[str, int | float]] = self.make_edgelist()
         self.vertex_figures = self.annotate_vertex_figures()
         self.solid_offset = self.largest_offset()
         self.compute_edge_lengths()
@@ -265,6 +275,7 @@ class Polyhedron:
     def average_edge_length(self) -> float:
         return np.sum([e["length"] for e in self.edges.values()]) / len(self.edges)
 
+    # Largest offset among all vertex figure max offsets
     def largest_offset(self) -> float:
         if len(self.vertex_figures) == 0:
             return 0
@@ -276,6 +287,7 @@ class Polyhedron:
         for edge, data in sorted_edges:
             print(f"{data['name']}, {data['offset_length']:.6f}")
 
+    # Determine offsets to be subtracted from each end of a given edge
     def offset_for_edge(self, v1, v2):
         vf1 = self.vertex_figures[v1]
         vf2 = self.vertex_figures[v2]
@@ -297,6 +309,8 @@ class Polyhedron:
             case OffsetType.PER_SOLID | _:
                 return (self.solid_offset, self.solid_offset)
 
+    # rod length = scale * |v1 - v2| - offset(v1, v2) - offset(v2, v1)
+    # value appended to self.edges
     def compute_edge_lengths(self):
         edge_lengths = []
         max_dist = max([np.linalg.norm(v) for v in self.vertices])
@@ -304,7 +318,7 @@ class Polyhedron:
             v1_offset, v2_offset = self.offset_for_edge(v1, v2)
             v1_arr = self.vertices[v1]
             v2_arr = self.vertices[v2]
-            length = np.linalg.norm(v2_arr - v1_arr)
+            length = float(np.linalg.norm(v2_arr - v1_arr))
             scale_factor = self.options.radius / max_dist
             offset_length = scale_factor * length - v1_offset - v2_offset
             edge_lengths.append(((v1, v2), length, offset_length))
@@ -318,7 +332,7 @@ class Polyhedron:
             }
 
     # Convert facelist into edgelist
-    def make_edgelist(self) -> dict[tuple[int, int], Any]:
+    def make_edgelist(self) -> dict[tuple[int, int], dict[str, int | float]]:
         edges = set()
         for face in self.faces:
             for v1, v2 in zip(face, face[1:] + [face[0]]):
@@ -328,6 +342,7 @@ class Polyhedron:
                     edges.add((v1_int, v2_int) if v1_int < v2_int else (v2_int, v1_int))
         return {e: {} for e in edges}
 
+    # Distinct vertex figures should have distinct signatures. Probably.
     def vertex_figure_signature(self, vecs) -> tuple[int, ...]:
         precision = 100000
         n = len(vecs)
@@ -348,6 +363,7 @@ class Polyhedron:
         )
         return tuple(dots + triples)
 
+    # Construct vertex figure list
     def annotate_vertex_figures(self) -> list[VertexFigure]:
         vertices_arr = self.vertices
 
@@ -380,6 +396,8 @@ class Polyhedron:
 
         return vertex_figures
 
+    # For triangular meshes, attempt to make all faces as equilateral as
+    # possible.
     def isotropize(self):
         ms = pymeshlab.MeshSet()
 
@@ -457,6 +475,8 @@ class OpenscadArgs:
                 value = polyhedron.solid_offset
                 return [[value] * len(vf.vecs) for vf in polyhedron.vertex_figures]
 
+    # Convert this object to an unholy argument list that is passed to an
+    # openscad call
     def to_openscad_args(self) -> list[str]:
         args = []
         args.append(f"-DEDGE_DIAMETER={self.options.edge_diameter}")
@@ -621,6 +641,7 @@ def chunks(lst, n):
         yield lst[i : i + n]
 
 
+# Convert polyhedron edge list into a set of svgs for a laser cutter
 def save_svg(polyhedron: Polyhedron, output_dir: str):
     edges = sorted(polyhedron.edges.items(), key=lambda x: x[1]["offset_length"])
     diameter = polyhedron.options.edge_diameter
@@ -655,6 +676,7 @@ def save_svg(polyhedron: Polyhedron, output_dir: str):
         surface.flush()
 
 
+# Call openscad in parallel each vertex and save stls.
 def call_openscad(
     polyhedron: Polyhedron,
     options: GlobalOptions,
