@@ -462,7 +462,128 @@ class Polyhedron {
     }
 }
 
-class OpenScadArgs {
+class OpenscadArgs {
+    vertices: Matrix;
+    edges: number[][];
+    vertexFigures: Matrix[];
+    eulers: number[][];
+    tags: number[];
+    vertexFigureEdges: number[][];
+    offsets: number[][];
+    options: VertexPrintParams
+
+    constructor(polyhedron: Polyhedron, options: VertexPrintParams) {
+        const {
+            vertices,
+            edges,
+            vertexFigures,
+            eulers,
+            tags,
+            vertexFigureEdges,
+        } = this.polyhedronOptionsArray(polyhedron);
+
+        this.vertices = vertices;
+        this.edges = edges;
+        this.vertexFigures = vertexFigures;
+        this.eulers = eulers;
+        this.tags = tags;
+        this.vertexFigureEdges = vertexFigureEdges;
+        this.offsets = this.polyhedronOffsetArray(polyhedron);
+
+        this.options = options
+    }
+
+    polyhedronOptionsArray(polyhedron: Polyhedron): {
+        vertices: Matrix;
+        edges: number[][];
+        vertexFigures: Matrix[];
+        eulers: number[][];
+        tags: number[];
+        vertexFigureEdges: number[][];
+    } {
+        const vertices = polyhedron.vertices;
+        const edges: number[][] = [];
+        for (const key of polyhedron.edges.keys()) {
+            const [v1, v2] = key.split(",").map(Number);
+            edges.push([v1, v2]);
+        }
+        const vertexFigures: Matrix[] = [];
+        const eulers: number[][] = [];
+        const tags: number[] = [];
+        const vertexFigureEdges: number[][] = [];
+
+        for (const vf of polyhedron.vertexFigures) {
+            vertexFigures.push(vf.std);
+            eulers.push(vf.euler);
+            tags.push(vf.tag);
+            vertexFigureEdges.push(vf.edges);
+        }
+
+        return { vertices, edges, vertexFigures, eulers, tags, vertexFigureEdges };
+    }
+
+    polyhedronOffsetArray(polyhedron: Polyhedron): number[][] {
+        switch (polyhedron.options.offsetType) {
+            case "fixed": {
+                const value = polyhedron.options.manualOffset;
+                return polyhedron.vertexFigures.map((vf) =>
+                    Array(vf.vecs.rows).fill(value),
+                );
+            }
+            case "auto_per_vertex": {
+                return polyhedron.vertexFigures.map((vf) =>
+                    Array(vf.vecs.rows).fill(vf.vertexOffset),
+                );
+            }
+            case "auto_per_edge": {
+                return polyhedron.vertexFigures.map((vf) =>
+                    [...vf.halfEdgeOffset],
+                );
+            }
+            case "auto_global":
+            default: {
+                const value = polyhedron.solidOffset;
+                return polyhedron.vertexFigures.map((vf) =>
+                    Array(vf.vecs.rows).fill(value),
+                );
+            }
+        }
+    }
+
+    // Convert this object to an unholy argument list that is passed to an
+    // openscad call
+    toOpenscadArgs(vertex: number): string[] {
+        const args: string[] = [];
+        args.push(`-DEDGE_DIAMETER=${this.options.edgeDiameter}`);
+        args.push(`-DDIAMETER_TOLERANCE_FIT=${this.options.diameterTolerance}`);
+        args.push(`-DDIAMETER_TAPER_FIT=${this.options.diameterTaper}`);
+        args.push(`-DWALL_THICKNESS=${this.options.wallThickness}`);
+        args.push(`-DROD_INSET=${this.options.rodInset}`);
+        args.push(
+            `-DMIN_PRINTER_OVERHANG_ANGLE=${this.options.maxPrinterOverhangAngle}`,
+        );
+        args.push(`-DOFFSET_TYPE="${this.options.offsetType}"`);
+
+        // vertexFigures (std)
+        const vertexFigure = this.vertexFigures[vertex]
+        const rows: string[] = [];
+        for (let i = 0; i < vertexFigure.rows; i++) {
+            rows.push(`[${vertexFigure.getRow(i).join(",")}]`);
+        }
+        const vfStr = `[${rows.join(",")}]`;
+        args.push(`-Dvertex_figures=${vfStr}`);
+
+        const tag = this.tags[vertex]
+        args.push(`-Dtags=${tag}`);
+
+        const offset = `[${this.offsets[vertex].join(",")}]`;
+        args.push(`-Doffsets=${offset}`);
+
+        const vertexFigureEdges = `[${this.vertexFigureEdges[vertex].join(",")}]`;
+        args.push(`-Dvertex_figure_edges=${vertexFigureEdges}`);
+
+        return args;
+    }
 }
 
 class VertexPrintOutputs {
