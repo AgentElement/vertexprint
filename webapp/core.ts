@@ -560,10 +560,10 @@ class OpenscadArgs {
         args.push(`-DWALL_THICKNESS=${this.options.wallThickness}`);
         args.push(`-DROD_INSET=${this.options.rodInset}`);
         args.push(
-            `-DMIN_PRINTER_OVERHANG_ANGLE=${this.options.maxPrinterOverhangAngle}`,
+            `-DMIN_PRINTER_OVERHANG_ANGLE=${90 - this.options.maxPrinterOverhangAngle}`,
         );
-        args.push(`-DOFFSET_TYPE="${this.options.offsetType}"`);
 
+        args.push(`-Dindex=${vertex}`)
         // vertexFigures (std)
         const vertexFigure = this.vertexFigures[vertex]
         const rows: string[] = [];
@@ -571,20 +571,22 @@ class OpenscadArgs {
             rows.push(`[${vertexFigure.getRow(i).join(",")}]`);
         }
         const vfStr = `[${rows.join(",")}]`;
-        args.push(`-Dvertex_figures=${vfStr}`);
+        args.push(`-Dvertex_figure=${vfStr}`);
 
         const tag = this.tags[vertex]
-        args.push(`-Dtags=${tag}`);
+        args.push(`-Dtag=${tag}`);
 
         const offset = `[${this.offsets[vertex].join(",")}]`;
         args.push(`-Doffsets=${offset}`);
 
         const vertexFigureEdges = `[${this.vertexFigureEdges[vertex].join(",")}]`;
-        args.push(`-Dvertex_figure_edges=${vertexFigureEdges}`);
+        args.push(`-Dvertex_figure_edge=${vertexFigureEdges}`);
 
         return args;
     }
 }
 
 class VertexPrintOutputs {
+    polyhedron: Polyhedron;
+    files: string[];
 }
