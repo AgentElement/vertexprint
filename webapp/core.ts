@@ -14,6 +14,95 @@ export class VertexPrintParams {
 
 export function vertexPrint(data: ArrayBuffer, params: VertexPrintParams): VertexPrintOutputs {
     return
+function polyhedronFromFile(name: string, data: ArrayBuffer, options: VertexPrintParams) {
+    let polyhedron: Polyhedron;
+    try {
+        const isObj = name.toLowerCase().endsWith(".obj");
+        polyhedron = isObj
+            ? parseObj(data, name, options)
+            : parseStl(data, name, options);
+    } catch (e) {
+        // TODO: show user an error message
+        console.error("Failed to load", name, e);
+        return;
+    }
+    return polyhedron;
+}
+
+// Parse OBJ files into Polyhedron objects.
+function parseObj(
+    data: ArrayBuffer,
+    filename: string,
+    options: VertexPrintParams,
+): Polyhedron {
+    const text = new TextDecoder().decode(data);
+    const vertices: number[][] = [];
+    const faces: string[][] = [];
+
+    const lines = text.split(/\r?\n/);
+    for (const rawLine of lines) {
+        const line = rawLine.trim();
+        if (!line || line.startsWith("#")) {
+            continue;
+        }
+
+        const parts = line.split(/\s+/);
+        if (parts.length === 0) {
+            continue;
+        }
+
+        if (parts[0] === "v") {
+            const vertex = [parseFloat(parts[1]), parseFloat(parts[2]), parseFloat(parts[3])];
+            vertices.push(vertex);
+        } else if (parts[0] === "f") {
+            // OBJ uses 1-based indexing, we convert to 0-based
+            const face: string[] = [];
+            for (let i = 1; i < parts.length; i++) {
+                const vertDef = parts[i];
+                const indices = vertDef.split("/")[0];
+                face.push(String(parseInt(indices, 10) - 1));
+            }
+            faces.push(face);
+            console.log(face);
+        }
+    }
+    if (vertices.length === 0) {
+        throw new Error(`No vertices found in OBJ file: ${filename}`);
+    }
+
+    // os.path.basename(filepath).replace(".obj", "")
+    const base = filename.split(/[\\/]/).pop() ?? filename;
+    const name = base.replace(/\.obj$/i, "");
+
+    return new Polyhedron(
+        name,
+        faces,
+        new Matrix(vertices),
+        options,
+    );
+}
+
+// Parse STL files into Polyhedron objects.
+function parseStl(data: ArrayBuffer, filename: string, options: VertexPrintParams): Polyhedron {
+    const geometry = mergeVertices(new STLLoader().parse(data));
+    const position = geometry.attributes.position;
+    const index = geometry.index;
+    if (!position || !index) {
+        throw new Error("No positions found in STL data");
+    }
+
+    const arr = position.array as ArrayLike<number>;
+    const vertices: number[][] = [];
+    for (let i = 0; i < position.count; i++) {
+        vertices.push([arr[i * 3], arr[i * 3 + 1], arr[i * 3 + 2]]);
+    }
+
+    const faces: string[][] = [];
+    for (let i = 0; i < index.count; i += 3) {
+        faces.push([String(index.getX(i)), String(index.getX(i + 1)), String(index.getX(i + 2))]);
+    }
+
+    return new Polyhedron(filename, faces, new Matrix(vertices), options);
 }
 
 // For some godforsaken reason ml-matrix does not provide cross products.
