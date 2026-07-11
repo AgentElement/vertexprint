@@ -1,4 +1,18 @@
 import Matrix, { SingularValueDecomposition } from "ml-matrix";
+import { STLLoader } from "three/addons/loaders/STLLoader.js";
+import { mergeVertices } from "three/addons/utils/BufferGeometryUtils.js";
+
+import OpenSCAD from "./openscad-wasm/build/openscad.js";
+
+let VERTEXPRINT_SOURCE: string | null = null;
+
+async function loadSource(): Promise<string> {
+    if (VERTEXPRINT_SOURCE !== null) {
+        return VERTEXPRINT_SOURCE;
+    }
+    VERTEXPRINT_SOURCE = await fetch("vertexprint.scad").then((r) => r.text());
+    return VERTEXPRINT_SOURCE;
+}
 
 export class VertexPrintParams {
     edgeDiameter: number;
@@ -12,8 +26,59 @@ export class VertexPrintParams {
     manualOffset: number;
 };
 
-export function vertexPrint(data: ArrayBuffer, params: VertexPrintParams): VertexPrintOutputs {
-    return
+export class VertexPrintOutputs {
+    polyhedron: Polyhedron;
+    stls: ArrayBuffer[];
+
+    constructor(polyhedron: Polyhedron, stls: ArrayBuffer[]) {
+        this.polyhedron = polyhedron;
+        this.stls = stls;
+    }
+}
+
+export async function vertexPrint(
+    name: string,
+    data: ArrayBuffer,
+    options: VertexPrintParams,
+): Promise<VertexPrintOutputs> {
+    const polyhedron = polyhedronFromFile(name, data, options);
+    if (!polyhedron) {
+        throw new Error(`Failed to parse polyhedron from ${name}`);
+    }
+    const scadSource = await loadSource();
+    const args = new OpenscadArgs(polyhedron, options);
+    const count = polyhedron.vertexFigures.length;
+    // Run every vertex through openscad concurrently.
+    const bufs = await Promise.all(
+        Array.from({ length: count }, (_, index) =>
+            generateSingleVertex(args, index, polyhedron.name, scadSource),
+        ),
+    );
+    return new VertexPrintOutputs(polyhedron, bufs);
+}
+
+async function generateSingleVertex(
+    args: OpenscadArgs,
+    index: number,
+    name: string,
+    scadSource: string,
+): Promise<ArrayBuffer> {
+    const instance = await OpenSCAD({ noInitialRun: true });
+    instance.FS.writeFile("./input.scad", scadSource);
+    const filename = `v_${name}_${index}.stl`;
+    instance.callMain([
+        "./input.scad",
+        "--enable=manifold",
+        ...args.toOpenscadArgs(index),
+        "-o",
+        filename,
+    ]);
+    const out = instance.FS.readFile(`./${filename}`, { encoding: "binary" });
+    // Copy out of the wasm heap into an owning ArrayBuffer.
+    return out.slice().buffer;
+}
+
+
 function polyhedronFromFile(name: string, data: ArrayBuffer, options: VertexPrintParams) {
     let polyhedron: Polyhedron;
     try {
@@ -639,13 +704,13 @@ class OpenscadArgs {
         }
     }
 
-    // Convert this object to an unholy argument list that is passed to an
+    // Convert a vertex to an unholy argument list that is passed to an
     // openscad call
     toOpenscadArgs(vertex: number): string[] {
         const args: string[] = [];
         args.push(`-DEDGE_DIAMETER=${this.options.edgeDiameter}`);
         args.push(`-DDIAMETER_TOLERANCE_FIT=${this.options.diameterTolerance}`);
-        args.push(`-DDIAMETER_TAPER_FIT=${this.options.diameterTaper}`);
+        args.push(`-DDIAMETER_TAPER_DECREASE=${this.options.diameterTaper}`);
         args.push(`-DWALL_THICKNESS=${this.options.wallThickness}`);
         args.push(`-DROD_INSET=${this.options.rodInset}`);
         args.push(
@@ -673,9 +738,4 @@ class OpenscadArgs {
 
         return args;
     }
-}
-
-class VertexPrintOutputs {
-    polyhedron: Polyhedron;
-    files: string[];
 }
