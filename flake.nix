@@ -20,6 +20,13 @@
           pkgs.openscad
           pkgs.python3
           pkgs.nodejs
+
+          # openscad-wasm build dependencies
+          pkgs.gnumake
+          pkgs.git
+          pkgs.wget
+          pkgs.deno
+          pkgs.docker
         ];
 
         nativeBuildInputs = with pkgs; [
