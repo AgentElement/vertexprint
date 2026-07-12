@@ -1,5 +1,3 @@
-use <vertex_holders.scad>
-
 // The js script sets all of these global variables with the -D flag
 // Values here are defaults.
 EDGE_DIAMETER = 3.0;
@@ -21,7 +19,7 @@ INDEX = 0;
 // Openscad hangs if you don't set these lists with a flag
 vertex_figure = [];
 vertex_figure_edge = [];
-tag = ""
+tag = "";
 index = 0.0;
 offsets = [];
 
