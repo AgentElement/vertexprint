@@ -18,7 +18,6 @@ self.onmessage = async (e: MessageEvent) => {
             const filename = `v_${msg.name}_${msg.index}.stl`;
             inst.callMain([
                 "./input.scad",
-                "--enable=manifold",
                 ...msg.cliArgs,
                 "-o",
                 filename,
