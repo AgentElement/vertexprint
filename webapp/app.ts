@@ -3,10 +3,18 @@ import { STLLoader } from "three/addons/loaders/STLLoader.js";
 import { OBJLoader } from "three/addons/loaders/OBJLoader.js";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
-import { VertexPrintParams, vertexPrint } from "./core"
+import { VertexPrintOutputs, VertexPrintParams, vertexPrint } from "./core"
 
 const DATA_DIR = "data/";
 const DEFAULT_MODEL = "DisdyakisTriacontahedron.obj";
+
+const V_FG = cssVar("--color-v-fg");
+const V_BG = cssVar("--color-v-bg");
+const V_DARK = cssVar("--color-v-dark");
+const V_BORDER = cssVar("--color-v-border");
+const V_BLUE = cssVar("--color-v-blue");
+
+const PARAMS = new VertexPrintParams();
 
 // utils ---
 function clamp(v: number, min: number, max: number): number {
@@ -19,13 +27,6 @@ function cssVar(name: string): number {
         .trim();
     return parseInt(hex.replace("#", ""), 16);
 }
-
-const V_FG = cssVar("--color-v-fg");
-const V_BG = cssVar("--color-v-bg");
-const V_DARK = cssVar("--color-v-dark");
-const V_BORDER = cssVar("--color-v-border");
-const V_BLUE = cssVar("--color-v-blue");
-
 
 function makeOrientationCube(renderer: THREE.WebGLRenderer):
     [THREE.Mesh, THREE.Scene, THREE.OrthographicCamera] {
@@ -86,10 +87,180 @@ function makeOrientationCube(renderer: THREE.WebGLRenderer):
 }
 
 // Canvas logic. Placeholder. ---
-let scene: THREE.Scene;
-let camera: THREE.PerspectiveCamera;
-let controls: OrbitControls;
-let currentMesh: THREE.Mesh | null = null;
+
+class Canvas {
+    scene: THREE.Scene;
+    camera: THREE.PerspectiveCamera;
+    controls: OrbitControls;
+
+    currentMesh: THREE.Mesh | null;
+    currentName: string;
+    currentData: ArrayBuffer;
+
+    constructor() {
+        this.currentMesh = null;
+        this.currentName = DEFAULT_MODEL;
+        this.currentData = new ArrayBuffer(0);
+
+        this.initCanvas();
+    }
+
+    async initCanvas() {
+        this.scene = new THREE.Scene();
+        this.scene.background = new THREE.Color(V_BG);
+
+        this.camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+        this.camera.position.set(20, 15, 20);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.domElement.style.position = "fixed";
+        renderer.domElement.style.top = "0";
+        renderer.domElement.style.left = "0";
+        renderer.setPixelRatio(window.devicePixelRatio);
+        document.body.prepend(renderer.domElement);
+
+        this.controls = new OrbitControls(this.camera, renderer.domElement);
+        this.controls.update();
+
+        this.scene.add(new THREE.HemisphereLight(V_FG, V_BG, 1));
+
+        const keyLight = new THREE.DirectionalLight(V_FG, 2);
+        keyLight.position.set(10, 20, 15);
+        this.scene.add(keyLight);
+
+        const fillLight = new THREE.DirectionalLight(V_FG, 0.8);
+        fillLight.position.set(-10, -5, -15);
+        this.scene.add(fillLight);
+
+        const material = new THREE.MeshStandardMaterial({
+            color: V_BLUE,
+            flatShading: false,
+        });
+        const mesh = new THREE.Mesh(new THREE.BufferGeometry(), material);
+        this.scene.add(mesh);
+        this.currentMesh = mesh;
+        await this.loadFile(DEFAULT_MODEL);
+
+        const [cube, cubeScene, cubeCamera] = makeOrientationCube(renderer);
+
+        const ORENT_CUBE_SIZE = 240;
+        renderer.autoClear = false;
+        renderer.setScissorTest(true);
+
+        const animate = () => {
+            requestAnimationFrame(animate);
+            this.controls.update();
+
+            const W = window.innerWidth;
+            const H = window.innerHeight;
+
+            // Full-screen main scene
+            renderer.setViewport(0, 0, W, H);
+            renderer.setScissor(0, 0, W, H);
+            renderer.clear();
+            renderer.render(this.scene, this.camera);
+
+            // Counter-rotate the orientation cube so its faces track the camera's
+            // orientation (ie the cube shows where the camera looks).
+            cube.quaternion.copy(this.camera.quaternion).invert();
+
+            const gx = W - ORENT_CUBE_SIZE;     // right edge
+            const gy = 0;                       // bottom edge (GL y is measured from bottom)
+            renderer.setViewport(gx, gy, ORENT_CUBE_SIZE, ORENT_CUBE_SIZE);
+            renderer.setScissor(gx, gy, ORENT_CUBE_SIZE, ORENT_CUBE_SIZE);
+            renderer.clearDepth();
+            renderer.render(cubeScene, cubeCamera);
+        };
+        animate();
+
+        window.addEventListener("resize", () => {
+            this.camera.aspect = window.innerWidth / window.innerHeight;
+            this.camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    }
+
+    // Reposition camera to fit viewport. Keep current camera orientation
+    fitView(geometry: THREE.BufferGeometry) {
+        geometry.computeBoundingSphere();
+        const radius = geometry.boundingSphere?.radius ?? 1;
+        const fov = (this.camera.fov * Math.PI) / 180;
+        const dist = (radius / Math.sin(fov / 2)) * 1.25;
+        const dir = new THREE.Vector3()
+            .copy(this.camera.position)
+            .sub(this.controls.target)
+            .normalize();
+        if (dir.lengthSq() === 0) dir.set(1, 0.75, 1).normalize();
+        this.camera.position.copy(dir.multiplyScalar(dist));
+        this.controls.target.set(0, 0, 0);
+        this.controls.update();
+    }
+
+    // Load and display geometry. The file extension determines how `data` is
+    // parsed.
+    loadGeometry(name: string, data: ArrayBuffer) {
+        if (!this.currentMesh) return;
+        let geometry: THREE.BufferGeometry;
+        try {
+            const isObj = name.toLowerCase().endsWith(".obj");
+            geometry = isObj
+                ? geometryFromObj(new TextDecoder().decode(data))
+                : new STLLoader().parse(data);
+        } catch (e) {
+            // TODO: show user an error message
+            console.error("Failed to load", name, e);
+            return;
+        }
+
+        const count = geometry.attributes.position?.count ?? 0;
+        if (count === 0) {
+            console.error("Failed to load", name, "malformed file: no geometry parsed");
+            return;
+        }
+
+        geometry.center();
+        geometry.computeVertexNormals();
+        this.currentMesh.geometry.dispose();
+        this.currentMesh.geometry = geometry;
+        this.fitView(geometry);
+    }
+
+    // Load a preset.
+    async loadFile(filename: string) {
+        const data = await fetch(DATA_DIR + filename).then((r) => r.arrayBuffer())
+        this.currentName = filename;
+        this.currentData = data;
+        return this.loadGeometry(filename, data);
+    }
+
+    // Load a file selected through the upload button.
+    async loadUserFile(file: File) {
+        const data = await file.arrayBuffer();
+        this.currentName = file.name;
+        this.currentData = data;
+        return this.loadGeometry(file.name, data);
+    }
+
+    loadVertexPrintOutputs(outputs: VertexPrintOutputs) {
+        const polyhedron = outputs.polyhedron;
+        for (let i = 0; i < polyhedron.vertexFigures.length; ++i) {
+            const geometry = new STLLoader().parse(outputs.stls[i]);
+            geometry.center();
+            geometry.computeVertexNormals();
+            const material = new THREE.MeshStandardMaterial({
+                color: V_BLUE,
+                flatShading: false,
+            });
+            const mesh = new THREE.Mesh(geometry, material);
+            const position = polyhedron.vertices.getColumn(i);
+            mesh.position.set(position[0], position[1], position[2]);
+            this.scene.add(mesh);
+        }
+
+        this.currentMesh.geometry.dispose();
+    }
+}
 
 // Merge every mesh geometry contained in an OBJLoader-produced group.
 function geometryFromObj(text: string): THREE.BufferGeometry {
@@ -102,139 +273,6 @@ function geometryFromObj(text: string): THREE.BufferGeometry {
     if (geometries.length === 0) return new THREE.BufferGeometry();
     if (geometries.length === 1) return geometries[0];
     return mergeGeometries(geometries, false) ?? geometries[0];
-}
-
-// Reposition camera to fit viewport. Keep current camera orientation
-function fitView(geometry: THREE.BufferGeometry) {
-    geometry.computeBoundingSphere();
-    const radius = geometry.boundingSphere?.radius ?? 1;
-    const fov = (camera.fov * Math.PI) / 180;
-    const dist = (radius / Math.sin(fov / 2)) * 1.25;
-    const dir = new THREE.Vector3()
-        .copy(camera.position)
-        .sub(controls.target)
-        .normalize();
-    if (dir.lengthSq() === 0) dir.set(1, 0.75, 1).normalize();
-    camera.position.copy(dir.multiplyScalar(dist));
-    controls.target.set(0, 0, 0);
-    controls.update();
-}
-
-// Load and display geometry. The file extension determines how `data` is
-// parsed.
-function loadGeometry(name: string, data: ArrayBuffer) {
-    if (!currentMesh) return;
-    let geometry: THREE.BufferGeometry;
-    try {
-        const isObj = name.toLowerCase().endsWith(".obj");
-        geometry = isObj
-            ? geometryFromObj(new TextDecoder().decode(data))
-            : new STLLoader().parse(data);
-    } catch (e) {
-        // TODO: show user an error message
-        console.error("Failed to load", name, e);
-        return;
-    }
-
-    const count = geometry.attributes.position?.count ?? 0;
-    if (count === 0) {
-        console.error("Failed to load", name, "malformed file: no geometry parsed");
-        return;
-    }
-
-    geometry.center();
-    geometry.computeVertexNormals();
-    currentMesh.geometry.dispose();
-    currentMesh.geometry = geometry;
-    fitView(geometry);
-}
-
-// Load a preset.
-async function loadFile(filename: string) {
-    const data = await fetch(DATA_DIR + filename).then((r) => r.arrayBuffer())
-    return loadGeometry(filename, data);
-}
-
-// Load a file selected through the upload button.
-async function loadUserFile(file: File) {
-    const data = await file.arrayBuffer();
-    return loadGeometry(file.name, data);
-}
-
-async function initCanvas() {
-    scene = new THREE.Scene();
-    scene.background = new THREE.Color(V_BG);
-
-    camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(20, 15, 20);
-
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.domElement.style.position = "fixed";
-    renderer.domElement.style.top = "0";
-    renderer.domElement.style.left = "0";
-    renderer.setPixelRatio(window.devicePixelRatio);
-    document.body.prepend(renderer.domElement);
-
-    controls = new OrbitControls(camera, renderer.domElement);
-    controls.update();
-
-    scene.add(new THREE.HemisphereLight(V_FG, V_BG, 1));
-
-    const keyLight = new THREE.DirectionalLight(V_FG, 2);
-    keyLight.position.set(10, 20, 15);
-    scene.add(keyLight);
-
-    const fillLight = new THREE.DirectionalLight(V_FG, 0.8);
-    fillLight.position.set(-10, -5, -15);
-    scene.add(fillLight);
-
-    const material = new THREE.MeshStandardMaterial({
-        color: V_BLUE,
-        flatShading: false,
-    });
-    const mesh = new THREE.Mesh(new THREE.BufferGeometry(), material);
-    scene.add(mesh);
-    currentMesh = mesh;
-    await loadFile(DEFAULT_MODEL);
-
-    const [cube, cubeScene, cubeCamera] = makeOrientationCube(renderer);
-
-    const ORENT_CUBE_SIZE = 240;
-    renderer.autoClear = false;
-    renderer.setScissorTest(true);
-
-    function animate() {
-        requestAnimationFrame(animate);
-        controls.update();
-
-        const W = window.innerWidth;
-        const H = window.innerHeight;
-
-        // Full-screen main scene
-        renderer.setViewport(0, 0, W, H);
-        renderer.setScissor(0, 0, W, H);
-        renderer.clear();
-        renderer.render(scene, camera);
-
-        // Counter-rotate the orientation cube so its faces track the camera's
-        // orientation (ie the cube shows where the camera looks).
-        cube.quaternion.copy(camera.quaternion).invert();
-
-        const gx = W - ORENT_CUBE_SIZE;     // right edge
-        const gy = 0;                       // bottom edge (GL y is measured from bottom)
-        renderer.setViewport(gx, gy, ORENT_CUBE_SIZE, ORENT_CUBE_SIZE);
-        renderer.setScissor(gx, gy, ORENT_CUBE_SIZE, ORENT_CUBE_SIZE);
-        renderer.clearDepth();
-        renderer.render(cubeScene, cubeCamera);
-    }
-    animate();
-
-    window.addEventListener("resize", () => {
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
-    });
 }
 
 // Runtime page construction ---
@@ -384,8 +422,6 @@ const TW_CLASS = {
     select: 'w-full font-mono text-[11px] text-v-fg bg-black border border-v-border px-1 py-0.5 focus:outline-none focus:border-v-blue',
 };
 
-const values = new VertexPrintParams();
-const sidebar_rows = new Map<string, HTMLElement>();
 
 type SliderRow = {
     row: HTMLElement;
@@ -400,136 +436,145 @@ type SelectRow = {
     param: SelectParam
 };
 
-function makeSlider(param: SliderParam): HTMLElement {
-    const row = document.createElement('div');
-    row.className = TW_CLASS.row;
-    row.dataset.param = param.name;
-    row.innerHTML =
-        `<div class="${TW_CLASS.top}"><span class="${TW_CLASS.label}" title="${param.desc}">${param.label}</span>`
-        + `<div class="relative"><input class="${TW_CLASS.num}" type="number" value="${param.value}">`
-        + `<span class="${TW_CLASS.unit}">${param.unit}</span></div></div>`
-        + `<input class="${TW_CLASS.slider}" type="range" min="${param.min}" max="${param.max}" step="${param.step}" value="${param.value}">`;
-    return row
-}
+class Sidebar {
+    rows: Map<string, HTMLElement>;
 
-function makeSelect(param: SelectParam): HTMLElement {
-    const row = document.createElement('div');
-    row.className = TW_CLASS.row;
-    row.dataset.param = param.name;
-    const paramsHTML = param.options.map(o =>
-        `<option value="${o.value}"${o.value === param.value ? ' selected' : ''}>${o.label}</option>`).join('');
-    row.innerHTML =
-        `<div class="${TW_CLASS.top}"><span class="${TW_CLASS.label}" title="${param.desc}">${param.label}</span></div>`
-        + `<select class="${TW_CLASS.select}">${paramsHTML}</select>`;
-    return row
-}
+    constructor() {
+        this.rows = new Map();
+        this.initSidebar();
+    }
 
-function enforceSelects() {
-    for (const param of OPTIONS) {
-        if (param.kind === 'select' && param.reveal) {
-            const currentVal = String(values[param.name]);
-            const shown = param.reveal(currentVal);
-            if (shown)
-                sidebar_rows.get(shown)!.style.display = '';
-            for (const o of param.options) {
-                const r = param.reveal(o.value);
-                if (r && o.value !== currentVal)
-                    sidebar_rows.get(r)!.style.display = 'none';
+    makeSlider(param: SliderParam): HTMLElement {
+        const row = document.createElement('div');
+        row.className = TW_CLASS.row;
+        row.dataset.param = param.name;
+        row.innerHTML =
+            `<div class="${TW_CLASS.top}"><span class="${TW_CLASS.label}" title="${param.desc}">${param.label}</span>`
+            + `<div class="relative"><input class="${TW_CLASS.num}" type="number" value="${param.value}">`
+            + `<span class="${TW_CLASS.unit}">${param.unit}</span></div></div>`
+            + `<input class="${TW_CLASS.slider}" type="range" min="${param.min}" max="${param.max}" step="${param.step}" value="${param.value}">`;
+        return row
+    }
+
+    makeSelect(param: SelectParam): HTMLElement {
+        const row = document.createElement('div');
+        row.className = TW_CLASS.row;
+        row.dataset.param = param.name;
+        const paramsHTML = param.options.map(o =>
+            `<option value="${o.value}"${o.value === param.value ? ' selected' : ''}>${o.label}</option>`).join('');
+        row.innerHTML =
+            `<div class="${TW_CLASS.top}"><span class="${TW_CLASS.label}" title="${param.desc}">${param.label}</span></div>`
+            + `<select class="${TW_CLASS.select}">${paramsHTML}</select>`;
+        return row
+    }
+
+    enforceSelects() {
+        for (const param of OPTIONS) {
+            if (param.kind === 'select' && param.reveal) {
+                const currentVal = String(PARAMS[param.name]);
+                const shown = param.reveal(currentVal);
+                if (shown)
+                    this.rows.get(shown)!.style.display = '';
+                for (const o of param.options) {
+                    const r = param.reveal(o.value);
+                    if (r && o.value !== currentVal)
+                        this.rows.get(r)!.style.display = 'none';
+                }
             }
         }
     }
-}
 
-// Synchronize slider with corresponding num entry and vv
-function syncSlider(r: SliderRow) {
-    const setFill = () => {
-        const pct = (clamp(r.slider.valueAsNumber, r.param.min, r.param.max) - r.param.min)
-            / (r.param.max - r.param.min) * 100;
-        r.slider.style.setProperty('--fill', `${pct}%`);
-    };
-    const sync = (src: 'slider' | 'num') => {
-        const raw = parseFloat(src === 'slider' ? r.slider.value : r.num.value);
-        const v = clamp(isNaN(raw) ? 0 : raw, r.param.min, r.param.max);
-        r.slider.value = String(v);
-        r.num.value = String(v);
-        values[r.param.name] = v;
+    // Synchronize slider with corresponding num entry and vv
+    syncSlider(r: SliderRow) {
+        const setFill = () => {
+            const pct = (clamp(r.slider.valueAsNumber, r.param.min, r.param.max) - r.param.min)
+                / (r.param.max - r.param.min) * 100;
+            r.slider.style.setProperty('--fill', `${pct}%`);
+        };
+        const sync = (src: 'slider' | 'num') => {
+            const raw = parseFloat(src === 'slider' ? r.slider.value : r.num.value);
+            const v = clamp(isNaN(raw) ? 0 : raw, r.param.min, r.param.max);
+            r.slider.value = String(v);
+            r.num.value = String(v);
+            PARAMS[r.param.name] = v;
+            setFill();
+        };
+        r.slider.addEventListener('input', () => sync('slider'));
+        r.num.addEventListener('input', () => sync('num'));
+        r.num.addEventListener('change', () => sync('num'));
         setFill();
-    };
-    r.slider.addEventListener('input', () => sync('slider'));
-    r.num.addEventListener('input', () => sync('num'));
-    r.num.addEventListener('change', () => sync('num'));
-    setFill();
-}
-
-function syncSelect(r: SelectRow) {
-    r.sel.addEventListener('change', () => {
-        values[r.param.name] = r.sel.value;
-        enforceSelects();
-    });
-}
-
-function initSidebar() {
-    const sidebar = document.getElementById('sidebar')!;
-    // Initialize sidebar input fields
-    const opts = document.getElementById('sidebar-opts')!;
-    for (const param of OPTIONS) {
-        let row: HTMLElement;
-        if (param.kind === 'slider') {
-            values[param.name] = param.value;
-            row = makeSlider(param);
-            syncSlider({
-                row,
-                slider: row.querySelector('.dh-slider')!,
-                num: row.querySelector('input[type="number"]')!,
-                param
-            });
-        } else {
-            values[param.name] = param.value;
-            row = makeSelect(param);
-            syncSelect({
-                row,
-                sel: row.querySelector('select')!,
-                param
-            });
-        }
-        sidebar_rows.set(param.name, row);
-        opts.appendChild(row);
     }
-    enforceSelects();
 
-    // Open/close sidebar
-    const sidebar_reopen = document.getElementById('sidebar-reopen')!;
-    document.getElementById('sidebar-close')!.addEventListener('click', () => {
-        sidebar.style.display = 'none';
-        sidebar_reopen.style.display = 'flex';
-    });
-    sidebar_reopen.addEventListener('click', () => {
-        sidebar.style.display = '';
-        sidebar_reopen.style.display = 'none';
-    });
+    syncSelect(r: SelectRow) {
+        r.sel.addEventListener('change', () => {
+            PARAMS[r.param.name] = r.sel.value;
+            this.enforceSelects();
+        });
+    }
 
-    // Resize sidebar
-    const sidebar_resizer = document.getElementById('sidebar-resizer')!;
-    let dragging = false, startX = 0, startW = 0;
-    sidebar_resizer.addEventListener('mousedown', (e) => {
-        dragging = true;
-        sidebar_resizer.classList.add('dragging');
-        startX = e.clientX;
-        startW = sidebar.offsetWidth;
-        document.body.style.userSelect = 'none';
-        e.preventDefault();
-    });
-    window.addEventListener('mousemove', (e) => {
-        if (!dragging) return;
-        const w = clamp(startW + (e.clientX - startX), 160, window.innerWidth * 0.5);
-        sidebar.style.width = w + 'px';
-        sidebar.style.maxWidth = 'none';
-    });
-    window.addEventListener('mouseup', () => {
-        dragging = false;
-        sidebar_resizer.classList.remove('dragging');
-        document.body.style.userSelect = '';
-    });
+    initSidebar() {
+        const sidebar = document.getElementById('sidebar')!;
+        // Initialize sidebar input fields
+        const opts = document.getElementById('sidebar-opts')!;
+        for (const param of OPTIONS) {
+            let row: HTMLElement;
+            if (param.kind === 'slider') {
+                PARAMS[param.name] = param.value;
+                row = this.makeSlider(param);
+                this.syncSlider({
+                    row,
+                    slider: row.querySelector('.dh-slider')!,
+                    num: row.querySelector('input[type="number"]')!,
+                    param
+                });
+            } else {
+                PARAMS[param.name] = param.value;
+                row = this.makeSelect(param);
+                this.syncSelect({
+                    row,
+                    sel: row.querySelector('select')!,
+                    param
+                });
+            }
+            this.rows.set(param.name, row);
+            opts.appendChild(row);
+        }
+        this.enforceSelects();
+
+        // Open/close sidebar
+        const sidebar_reopen = document.getElementById('sidebar-reopen')!;
+        document.getElementById('sidebar-close')!.addEventListener('click', () => {
+            sidebar.style.display = 'none';
+            sidebar_reopen.style.display = 'flex';
+        });
+        sidebar_reopen.addEventListener('click', () => {
+            sidebar.style.display = '';
+            sidebar_reopen.style.display = 'none';
+        });
+
+        // Resize sidebar
+        const sidebar_resizer = document.getElementById('sidebar-resizer')!;
+        let dragging = false, startX = 0, startW = 0;
+        sidebar_resizer.addEventListener('mousedown', (e) => {
+            dragging = true;
+            sidebar_resizer.classList.add('dragging');
+            startX = e.clientX;
+            startW = sidebar.offsetWidth;
+            document.body.style.userSelect = 'none';
+            e.preventDefault();
+        });
+        window.addEventListener('mousemove', (e) => {
+            if (!dragging) return;
+            const w = clamp(startW + (e.clientX - startX), 160, window.innerWidth * 0.5);
+            sidebar.style.width = w + 'px';
+            sidebar.style.maxWidth = 'none';
+        });
+        window.addEventListener('mouseup', () => {
+            dragging = false;
+            sidebar_resizer.classList.remove('dragging');
+            document.body.style.userSelect = '';
+        });
+    }
 }
 
 
@@ -612,7 +657,7 @@ const PRESETS: Record<string, Record<string, string>> = {
     },
 };
 
-function initPresetsMenu() {
+function initPresetsMenu(canvas: Canvas) {
     const presets_button = document.getElementById('presets-button')!;
     const presets_menu = document.getElementById('presets-menu')!;
 
@@ -627,7 +672,7 @@ function initPresetsMenu() {
             item.textContent = label;
             item.dataset.file = file;
             item.className = 'block w-full cursor-pointer text-left font-mono text-xs px-3 py-1 text-v-fg hover:bg-v-blue hover:text-v-dark';
-            item.addEventListener('click', () => { void loadFile(file); });
+            item.addEventListener('click', () => { void canvas.loadFile(file); });
             presets_menu.appendChild(item);
         }
     }
@@ -651,7 +696,7 @@ function initPresetsMenu() {
     });
 }
 
-function initUploadButton() {
+function initUploadButton(canvas: Canvas) {
     const button = document.getElementById('upload-button')!;
     button.addEventListener('click', () => {
         const input = document.createElement('input');
@@ -659,18 +704,18 @@ function initUploadButton() {
         input.accept = '.stl,.obj';
         input.addEventListener('change', () => {
             const file = input.files?.[0];
-            if (file) void loadUserFile(file);
+            if (file) void canvas.loadUserFile(file);
         });
         input.click();
     });
 }
 
 async function init() {
-    await initCanvas();
-    initSidebar();
+    const canvas = new Canvas();
+    new Sidebar();
     initInspector();
-    initPresetsMenu();
-    initUploadButton();
+    initPresetsMenu(canvas);
+    initUploadButton(canvas);
 }
 
 init();
