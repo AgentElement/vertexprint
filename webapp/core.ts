@@ -2,8 +2,6 @@ import Matrix, { SingularValueDecomposition } from "ml-matrix";
 import { STLLoader } from "three/addons/loaders/STLLoader.js";
 import { mergeVertices } from "three/addons/utils/BufferGeometryUtils.js";
 
-import OpenSCAD from "./openscad-wasm/build/openscad.js";
-
 let VERTEXPRINT_SOURCE: string | null = null;
 
 async function loadSource(): Promise<string> {
@@ -48,34 +46,71 @@ export async function vertexPrint(
     const scadSource = await loadSource();
     const args = new OpenscadArgs(polyhedron, options);
     const count = polyhedron.vertexFigures.length;
-    // Run every vertex through openscad concurrently.
-    const bufs = await Promise.all(
-        Array.from({ length: count }, (_, index) =>
-            generateSingleVertex(args, index, polyhedron.name, scadSource),
-        ),
-    );
-    return new VertexPrintOutputs(polyhedron, bufs);
+    const cliArgs: string[][] = [];
+    for (let i = 0; i < count; i++) {
+        cliArgs.push(args.toOpenscadArgs(i))
+    }
+    const stls = await renderVertices(polyhedron.name, scadSource, cliArgs);
+    return new VertexPrintOutputs(polyhedron, stls);
 }
 
-async function generateSingleVertex(
-    args: OpenscadArgs,
-    index: number,
+// Render vertices in parallel by processing contiguous chunks of vertices
+// through a pool of web workers.
+async function renderVertices(
     name: string,
     scadSource: string,
-): Promise<ArrayBuffer> {
-    const instance = await OpenSCAD({ noInitialRun: true });
-    instance.FS.writeFile("./input.scad", scadSource);
-    const filename = `v_${name}_${index}.stl`;
-    instance.callMain([
-        "./input.scad",
-        "--enable=manifold",
-        ...args.toOpenscadArgs(index),
-        "-o",
-        filename,
-    ]);
-    const out = instance.FS.readFile(`./${filename}`, { encoding: "binary" });
-    // Copy out of the wasm heap into an owning ArrayBuffer.
-    return out.slice().buffer;
+    cliArgs: string[][],
+): Promise<ArrayBuffer[]> {
+    const count = cliArgs.length;
+    const results: ArrayBuffer[] = new Array(count);
+    if (count === 0) return results;
+
+    const workerCount = Math.min(navigator.hardwareConcurrency || 1, count);
+    const chunkSize = Math.ceil(count / workerCount);
+
+    const workerUrl = new URL("./worker.js", import.meta.url);
+    const workerPromises: Promise<void>[] = [];
+
+    for (let w = 0; w < workerCount; w++) {
+        const start = w * chunkSize;
+        const end = Math.min(start + chunkSize, count);
+        if (start >= end) break;
+
+        const worker = new Worker(workerUrl, { type: "module" });
+
+        workerPromises.push(new Promise<void>((resolve, reject) => {
+            let pending = end - start;
+            const onMessage = (e: MessageEvent) => {
+                const m = e.data;
+                if (m.type === "error") {
+                    // TODO: visual cue when an openscad render fails
+                    worker.removeEventListener("message", onMessage);
+                    worker.terminate();
+                    reject(new Error(m.message));
+                    return;
+                }
+                results[m.index] = m.buffer;
+                pending--;
+                if (pending === 0) {
+                    worker.removeEventListener("message", onMessage);
+                    worker.terminate();
+                    resolve();
+                }
+            };
+            worker.addEventListener("message", onMessage);
+            for (let i = start; i < end; i++) {
+                worker.postMessage({
+                    type: "render",
+                    index: i,
+                    cliArgs: cliArgs[i],
+                    name,
+                    source: scadSource,
+                });
+            }
+        }));
+    }
+    await Promise.all(workerPromises);
+    return results;
 }
 
 
@@ -128,7 +163,6 @@ function parseObj(
                 face.push(String(parseInt(indices, 10) - 1));
             }
             faces.push(face);
-            console.log(face);
         }
     }
     if (vertices.length === 0) {
