@@ -437,7 +437,7 @@ class VertexFigure {
     }
 }
 
-type EdgeField = { length: number; offsetLength: number; name: number };
+type EdgeField = { length: number; offsetLength: number; name: number, offsets: [number, number] };
 
 class Polyhedron {
     name: string;
@@ -529,7 +529,7 @@ class Polyhedron {
         }
         const scale = this.options.scale / maxDist;
 
-        type KLO = { key: string; length: number; offsetLength: number };
+        type KLO = { key: string; length: number; offsetLength: number, offsets: [number, number] };
         const klo: KLO[] = [];
         for (const key of this.edges.keys()) {
             const [v1, v2] = key.split(",").map(Number);
@@ -538,13 +538,13 @@ class Polyhedron {
             const v2_arr = this.vertices.getRowVector(v2);
             const length = Matrix.sub(v2_arr, v1_arr).norm();
             const offsetLength = scale * length - v1_offset - v2_offset;
-            klo.push({ key, length, offsetLength });
+            klo.push({ key, length, offsetLength, offsets: [v1_offset, v2_offset] });
         }
 
         klo.sort((x, y) => x.offsetLength - y.offsetLength);
         for (let i = 0; i < klo.length; i++) {
-            const { key, length, offsetLength } = klo[i];
-            this.edges.set(key, { length, offsetLength, name: i });
+            const { key, length, offsetLength, offsets } = klo[i];
+            this.edges.set(key, { length, offsetLength, name: i, offsets });
         }
     }
 
@@ -562,7 +562,7 @@ class Polyhedron {
                     const key =
                         v1 < v2 ? `${v1},${v2}` : `${v2},${v1}`;
                     if (!edges.has(key)) {
-                        edges.set(key, { length: 0, offsetLength: 0, name: -1 });
+                        edges.set(key, { length: 0, offsetLength: 0, name: -1, offsets: [0, 0] });
                     }
                 }
             }
