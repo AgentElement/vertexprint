@@ -19,7 +19,7 @@ export class VertexPrintParams {
     wallThickness: number;
     scale: number;
     rodInset: number;
-    maxPrinterOverhangAngle: number;
+    minPrinterOverhangAngle: number;
     offsetType: string;
     manualOffset: number;
 };
@@ -183,7 +183,16 @@ function parseObj(
 
 // Parse STL files into Polyhedron objects.
 function parseStl(data: ArrayBuffer, filename: string, options: VertexPrintParams): Polyhedron {
-    const geometry = mergeVertices(new STLLoader().parse(data));
+    const parsed = new STLLoader().parse(data);
+    // Three.js's mergeVertices function deduplicates by all vertex attributes.
+    // Keep only the position attribute, to prevent vertices with per-face
+    // normals/colors/other junk from not merging.
+    for (const name of Object.keys(parsed.attributes)) {
+        if (name !== "position") {
+            parsed.deleteAttribute(name);
+        }
+    }
+    const geometry = mergeVertices(parsed);
     const position = geometry.attributes.position;
     const index = geometry.index;
     if (!position || !index) {
@@ -748,7 +757,7 @@ class OpenscadArgs {
         args.push(`-DWALL_THICKNESS=${this.options.wallThickness}`);
         args.push(`-DROD_INSET=${this.options.rodInset}`);
         args.push(
-            `-DMIN_PRINTER_OVERHANG_ANGLE=${90 - this.options.maxPrinterOverhangAngle}`,
+            `-DMIN_PRINTER_OVERHANG_ANGLE=${this.options.minPrinterOverhangAngle}`,
         );
 
         args.push(`-Dindex=${vertex}`)

@@ -466,7 +466,7 @@ const OPTIONS: Param[] = [
     },
     {
         kind: 'slider',
-        name: 'maxPrinterOverhangAngle',
+        name: 'minPrinterOverhangAngle',
         label: 'Maximum overhang angle',
         desc: 'The maximum overhang angle your printer allows',
         min: 0,
@@ -742,7 +742,7 @@ const PRESETS: Record<string, Record<string, string>> = {
         'Pentagonal Hexecontahedron (laevo)': 'LpentagonalHexecontahedron.obj',
     },
     'Misc': {
-        'Stanford Bunny': 'Bunny-LowPoly.stl',
+        'Stanford Bunny': 'bunny.stl',
         'Rhombic Dodecahedron Tiling': '13RhombicDodecahedra.obj',
     },
 };
