@@ -4,6 +4,7 @@ import { OBJLoader } from "three/addons/loaders/OBJLoader.js";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { VertexPrintOutputs, VertexPrintParams, vertexPrint } from "./core"
+import Matrix from "ml-matrix";
 
 const DATA_DIR = "data/";
 const DEFAULT_MODEL = "DisdyakisTriacontahedron.obj";
@@ -97,8 +98,26 @@ class Canvas {
     currentName: string;
     currentData: ArrayBuffer;
 
+    currentVertices: THREE.Mesh[];
+    vertexMaterial: THREE.MeshStandardMaterial;
+    edgeMaterial: THREE.MeshStandardMaterial;
+    meshMaterial: THREE.MeshStandardMaterial;
+
     constructor() {
         this.currentMesh = null;
+        this.currentVertices = [];
+        this.vertexMaterial = new THREE.MeshStandardMaterial({
+            color: V_BLUE,
+            flatShading: false,
+        });
+        this.edgeMaterial = new THREE.MeshStandardMaterial({
+            color: 0xffffff,
+            flatShading: false,
+        });
+        this.meshMaterial = new THREE.MeshStandardMaterial({
+            color: V_BLUE,
+            flatShading: false,
+        });
         this.currentName = DEFAULT_MODEL;
         this.currentData = new ArrayBuffer(0);
 
@@ -133,11 +152,7 @@ class Canvas {
         fillLight.position.set(-10, -5, -15);
         this.scene.add(fillLight);
 
-        const material = new THREE.MeshStandardMaterial({
-            color: V_BLUE,
-            flatShading: false,
-        });
-        const mesh = new THREE.Mesh(new THREE.BufferGeometry(), material);
+        const mesh = new THREE.Mesh(new THREE.BufferGeometry(), this.meshMaterial);
         this.scene.add(mesh);
         this.currentMesh = mesh;
         await this.loadFile(DEFAULT_MODEL);
@@ -181,19 +196,27 @@ class Canvas {
         });
     }
 
-    // Reposition camera to fit viewport. Keep current camera orientation
-    fitView(geometry: THREE.BufferGeometry) {
-        geometry.computeBoundingSphere();
-        const radius = geometry.boundingSphere?.radius ?? 1;
-        const fov = (this.camera.fov * Math.PI) / 180;
-        const dist = (radius / Math.sin(fov / 2)) * 1.25;
+    // Reposition camera so every mesh currently in the scene is in frame,
+    // preserving camera orientation.
+    fitView() {
+        const box = new THREE.Box3().setFromObject(this.scene);
+        if (box.isEmpty()) return;
+        const sphere = new THREE.Sphere();
+        box.getBoundingSphere(sphere);
+        const radius = sphere.radius || 1;
+        const center = sphere.center;
+
+        const fovV = (this.camera.fov * Math.PI) / 180;
+        const fovH = 2 * Math.atan(Math.tan(fovV / 2) * this.camera.aspect);
+        const dist = (radius / Math.sin(Math.min(fovV, fovH) / 2)) * 1.25;
+
         const dir = new THREE.Vector3()
             .copy(this.camera.position)
             .sub(this.controls.target)
             .normalize();
         if (dir.lengthSq() === 0) dir.set(1, 0.75, 1).normalize();
-        this.camera.position.copy(dir.multiplyScalar(dist));
-        this.controls.target.set(0, 0, 0);
+        this.camera.position.copy(center).add(dir.multiplyScalar(dist));
+        this.controls.target.copy(center);
         this.controls.update();
     }
 
@@ -201,6 +224,7 @@ class Canvas {
     // parsed.
     loadGeometry(name: string, data: ArrayBuffer) {
         if (!this.currentMesh) return;
+        this.clear();
         let geometry: THREE.BufferGeometry;
         try {
             const isObj = name.toLowerCase().endsWith(".obj");
@@ -221,9 +245,8 @@ class Canvas {
 
         geometry.center();
         geometry.computeVertexNormals();
-        this.currentMesh.geometry.dispose();
         this.currentMesh.geometry = geometry;
-        this.fitView(geometry);
+        this.fitView();
     }
 
     // Load a preset.
@@ -243,22 +266,89 @@ class Canvas {
     }
 
     loadVertexPrintOutputs(outputs: VertexPrintOutputs) {
+        this.clear()
         const polyhedron = outputs.polyhedron;
         for (let i = 0; i < polyhedron.vertexFigures.length; ++i) {
             const geometry = new STLLoader().parse(outputs.stls[i]);
-            geometry.center();
             geometry.computeVertexNormals();
-            const material = new THREE.MeshStandardMaterial({
-                color: V_BLUE,
-                flatShading: false,
-            });
-            const mesh = new THREE.Mesh(geometry, material);
-            const position = polyhedron.vertices.getColumn(i);
-            mesh.position.set(position[0], position[1], position[2]);
+            const mesh = new THREE.Mesh(geometry, this.vertexMaterial);
+            const position = polyhedron.vertices.getRow(i);
+            const rotation = polyhedron.vertexFigures[i].euler;
+            const x = PARAMS.scale * position[0];
+            const y = PARAMS.scale * position[1];
+            const z = PARAMS.scale * position[2];
+            mesh.position.set(x, y, z);
+            mesh.rotation.set(rotation[0], rotation[1], rotation[2], "ZYX");
             this.scene.add(mesh);
+            this.currentVertices.push(mesh)
         }
 
-        this.currentMesh.geometry.dispose();
+        this.loadEdges(outputs)
+
+        this.fitView();
+    }
+
+    // Draw edges. Identical to solids.scad/hedron_edges
+    loadEdges(outputs: VertexPrintOutputs) {
+        const polyhedron = outputs.polyhedron;
+        const radius = polyhedron.options.edgeDiameter / 2;
+        for (const [key, value] of polyhedron.edges) {
+            const [v1, v2] = key.split(",").map(Number);
+            const a = polyhedron.vertices.getRowVector(v1);
+            const b = polyhedron.vertices.getRowVector(v2);
+            const [o1, o2] = value.offsets;
+
+            // v = b - a, as in the scad prototype
+            const v = Matrix.sub(b, a);
+            const dist = v.norm();
+            const length = PARAMS.scale * dist - o1 - o2;
+
+            if (length <= 0) {
+                continue;
+            }
+
+            const vx = v.get(0, 0)
+            const vy = v.get(0, 1);
+            const vz = v.get(0, 2);
+
+            const phi = Math.atan2(vy, vx);
+            const theta = Math.acos(vz / dist);
+
+            const geometry = new THREE.CylinderGeometry(radius, radius, length, 16);
+            geometry.translate(0, length / 2, 0);
+            geometry.rotateX(Math.PI / 2);
+
+            const mesh = new THREE.Mesh(geometry, this.edgeMaterial);
+
+            // Position at the scaled vertex a, inset by o1 along the edge
+            const ux = vx / dist;
+            const uy = vy / dist;
+            const uz = vz / dist;
+
+            mesh.position.set(
+                PARAMS.scale * a.get(0, 0) + o1 * ux,
+                PARAMS.scale * a.get(0, 1) + o1 * uy,
+                PARAMS.scale * a.get(0, 2) + o1 * uz,
+            );
+
+            mesh.rotation.set(0, theta, phi, "ZYX");
+
+            this.scene.add(mesh);
+            this.currentVertices.push(mesh);
+        }
+    }
+
+    // Clear scene of all meshes
+    clear() {
+        for (const mesh of this.currentVertices) {
+            mesh.geometry.dispose();
+            this.scene.remove(mesh);
+        }
+        this.currentVertices = [];
+        if (this.currentMesh) {
+            this.currentMesh.geometry.dispose();
+            this.currentMesh.geometry = new THREE.BufferGeometry();
+        }
     }
 }
 
@@ -710,12 +800,42 @@ function initUploadButton(canvas: Canvas) {
     });
 }
 
+
+function initConstructButton(canvas: Canvas) {
+    const button = document.getElementById('construct-button')!;
+    const label = button.querySelector('p')!;
+    const IDLE_TEXT = 'Construct';
+
+    button.addEventListener('click', async () => {
+        if (canvas.currentData.byteLength === 0) {
+            console.error('No model loaded to construct from');
+            return;
+        }
+
+        button.classList.add('opacity-70', 'pointer-events-none');
+        let dots = 0;
+        label.textContent = 'Generating';
+        const timer = window.setInterval(() => {
+            dots = (dots + 1) % 4;
+            label.textContent = 'Generating' + '.'.repeat(dots);
+        }, 400);
+
+        const outputs = await vertexPrint(canvas.currentName, canvas.currentData, PARAMS);
+        canvas.loadVertexPrintOutputs(outputs);
+        canvas.loadEdges(outputs);
+        window.clearInterval(timer);
+        label.textContent = IDLE_TEXT;
+        button.classList.remove('opacity-70', 'pointer-events-none');
+    });
+}
+
 async function init() {
     const canvas = new Canvas();
     new Sidebar();
     initInspector();
     initPresetsMenu(canvas);
     initUploadButton(canvas);
+    initConstructButton(canvas);
 }
 
 init();
