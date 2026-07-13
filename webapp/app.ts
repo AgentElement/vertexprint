@@ -94,6 +94,7 @@ class Canvas {
     scene: THREE.Scene;
     camera: THREE.PerspectiveCamera;
     controls: OrbitControls;
+    root: THREE.Group;
 
     currentMesh: THREE.Mesh | null;
     currentName: string;
@@ -129,7 +130,9 @@ class Canvas {
         this.scene = new THREE.Scene();
         this.scene.background = new THREE.Color(V_BG);
 
-        this.camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+        this.root = new THREE.Group();
+        this.root.rotation.x = -Math.PI / 2;
+        this.scene.add(this.root);
         this.camera.position.set(20, 15, 20);
 
         const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -154,7 +157,7 @@ class Canvas {
         this.scene.add(fillLight);
 
         const mesh = new THREE.Mesh(new THREE.BufferGeometry(), this.meshMaterial);
-        this.scene.add(mesh);
+        this.root.add(mesh);
         this.currentMesh = mesh;
         await this.loadFile(DEFAULT_MODEL);
 
@@ -200,7 +203,7 @@ class Canvas {
     // Reposition camera so every mesh currently in the scene is in frame,
     // preserving camera orientation.
     fitView() {
-        const box = new THREE.Box3().setFromObject(this.scene);
+        const box = new THREE.Box3().setFromObject(this.root);
         if (box.isEmpty()) return;
         const sphere = new THREE.Sphere();
         box.getBoundingSphere(sphere);
@@ -284,7 +287,7 @@ class Canvas {
             const z = PARAMS.scale * position[2];
             mesh.position.set(x, y, z);
             mesh.rotation.set(rotation[0], rotation[1], rotation[2], "ZYX");
-            this.scene.add(mesh);
+            this.root.add(mesh);
             this.currentVertices.push(mesh)
         }
 
@@ -338,7 +341,7 @@ class Canvas {
 
             mesh.rotation.set(0, theta, phi, "ZYX");
 
-            this.scene.add(mesh);
+            this.root.add(mesh);
             this.currentVertices.push(mesh);
         }
     }
@@ -347,7 +350,7 @@ class Canvas {
     clear() {
         for (const mesh of this.currentVertices) {
             mesh.geometry.dispose();
-            this.scene.remove(mesh);
+            this.root.remove(mesh);
         }
         this.currentVertices = [];
         if (this.currentMesh) {
