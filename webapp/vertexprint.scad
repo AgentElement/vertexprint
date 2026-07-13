@@ -118,7 +118,7 @@ module tubular_vertex_holder(vecs, offsets=[], edge_list=[], index) {
             half_edge_offset = offsets[i];
 
             // Add support structure if v sits below the minimum overhang angle
-            if (rotation[1] > MIN_PRINTER_OVERHANG_ANGLE && TUBULAR_SUPPORTS) {
+            if (rotation[1] > 90 - MIN_PRINTER_OVERHANG_ANGLE && TUBULAR_SUPPORTS) {
                 lowest_top_point = lowest_line_on_cylinder(
                     v,
                     half_edge_offset+TUBE_DEPTH,
@@ -222,37 +222,6 @@ module tubular_vertex_holder(vecs, offsets=[], edge_list=[], index) {
         }
 
         // Flat bottom plane
-        translate([0, 0, -50+cutoff])
-        cube([100, 100, 100], center=true);
-    }
-}
-
-module conical_vertex_holder(vecs, offsets=[], edge_list=[]) {
-    // If no offset is specified, select a local offset
-    vertex_offset = (len(offsets) == 0) ? offset_from_vecs(vecs): max(offsets);
-    cutoff = cutoff_height(lowest_vector(vecs), vertex_offset, OUTER_TUBE_RADIUS);
-
-    difference() {
-        hull() {
-            for(v=vecs) {
-                rotation = direction_to_euler(v);
-                translate(vertex_offset * v)
-                rotate(rotation)
-                translate([0, 0, -vertex_offset])
-                linear_extrude(TUBE_DEPTH+vertex_offset)
-                circle(r=OUTER_TUBE_RADIUS);
-            }
-        }
-        for (v=vecs) {
-            rotation = direction_to_euler(v);
-            translate(vertex_offset * v)
-            rotate(rotation)
-            translate([0, 0, WALL_THICKNESS])
-            cylinder(
-                d1=EDGE_DIAMETER+DIAMETER_TOLERANCE_FIT-DIAMETER_TAPER_DECREASE,
-                d2=EDGE_DIAMETER+DIAMETER_TOLERANCE_FIT,
-                h=TUBE_DEPTH);
-        }
         translate([0, 0, -50+cutoff])
         cube([100, 100, 100], center=true);
     }
