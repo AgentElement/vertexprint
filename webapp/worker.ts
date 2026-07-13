@@ -9,6 +9,7 @@ self.onmessage = async (e: MessageEvent) => {
             if (!instancePromise) {
                 instancePromise = OpenSCAD({
                     noInitialRun: true,
+                    noExitRuntime: true,
                     locateFile: (path: string) =>
                         new URL(`./${path}`, import.meta.url).href,
                 });
