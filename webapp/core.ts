@@ -329,10 +329,10 @@ class VertexFigure {
             ];
         } else if (R.get(2, 0) < 0) {
             // y = 90 degrees
-            return [Math.atan2(-R.get(1, 2), R.get(1, 1)), 90.0, 0.0];
+            return [Math.atan2(-R.get(1, 2), R.get(1, 1)), Math.PI / 2, 0.0];
         } else {
             // y = -90 degrees
-            return [Math.atan2(-R.get(1, 2), R.get(1, 1)), -90.0, 0.0];
+            return [Math.atan2(-R.get(1, 2), R.get(1, 1)), -Math.PI / 2, 0.0];
         }
     }
 
@@ -359,7 +359,7 @@ class VertexFigure {
                     rows: this.vecs.rows,
                 });
                 const flipped = Matrix.mul(this.vecs, sign);
-                return [flipped, [180.0, 0.0, 0.0]];
+                return [flipped, [Math.PI, 0.0, 0.0]];
             }
         }
         const u = axis.mul(1 / lenAxis);
