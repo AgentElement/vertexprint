@@ -5,6 +5,7 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { VertexPrintOutputs, VertexPrintParams, vertexPrint } from "./core"
 import Matrix from "ml-matrix";
+import JSZip from "jszip";
 
 const DATA_DIR = "data/";
 const DEFAULT_MODEL = "DisdyakisTriacontahedron.obj";
@@ -766,7 +767,10 @@ function initPresetsMenu(canvas: Canvas) {
             item.textContent = label;
             item.dataset.file = file;
             item.className = 'block w-full cursor-pointer text-left font-mono text-xs px-3 py-1 text-v-fg hover:bg-v-blue hover:text-v-dark';
-            item.addEventListener('click', () => { void canvas.loadFile(file); });
+            item.addEventListener('click', () => {
+                disableDownloadButton();
+                void canvas.loadFile(file);
+            });
             presets_menu.appendChild(item);
         }
     }
@@ -798,7 +802,10 @@ function initUploadButton(canvas: Canvas) {
         input.accept = '.stl,.obj';
         input.addEventListener('change', () => {
             const file = input.files?.[0];
-            if (file) void canvas.loadUserFile(file);
+            if (file) {
+                disableDownloadButton();
+                void canvas.loadUserFile(file);
+            }
         });
         input.click();
     });
@@ -830,7 +837,49 @@ function initConstructButton(canvas: Canvas) {
         window.clearInterval(timer);
         label.textContent = IDLE_TEXT;
         button.classList.remove('opacity-70', 'pointer-events-none');
+        enableDownloadButton(outputs);
     });
+}
+
+async function saveOutputs(outputs: VertexPrintOutputs) {
+    const zip = new JSZip();
+    const polyhedron = outputs.polyhedron;
+    const baseName = (polyhedron.name || "vertexprint").replace(/[\\/:*?"<>|]/g, "_");
+    for (let i = 0; i < outputs.stls.length; i++) {
+        const blob = new Blob([outputs.stls[i]], { type: "application/octet-stream" });
+        zip.file(`${baseName}_v${i}.stl`, blob);
+    }
+
+    return zip.generateAsync({ type: "blob" }).then((content) => {
+        const url = URL.createObjectURL(content);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${baseName}.zip`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+    });
+}
+
+function resetDownloadButton(): HTMLButtonElement {
+    const old = document.getElementById('download-button')!;
+    const button = old.cloneNode(true) as HTMLButtonElement;
+    old.replaceWith(button);
+    return button;
+}
+
+function enableDownloadButton(outputs: VertexPrintOutputs) {
+    const button = resetDownloadButton();
+    button.classList.remove('text-v-fg/70', 'cursor-not-allowed');
+    button.classList.add('text-v-fg', 'cursor-pointer', 'hover:bg-v-blue', 'hover:text-v-dark');
+    button.addEventListener('click', () => { void saveOutputs(outputs); });
+}
+
+function disableDownloadButton() {
+    const button = resetDownloadButton();
+    button.classList.add('text-v-fg/70', 'cursor-not-allowed');
+    button.classList.remove('text-v-fg', 'cursor-pointer', 'hover:bg-v-blue', 'hover:text-v-dark');
 }
 
 async function init() {
@@ -840,6 +889,7 @@ async function init() {
     initPresetsMenu(canvas);
     initUploadButton(canvas);
     initConstructButton(canvas);
+    disableDownloadButton();
 }
 
 init();
