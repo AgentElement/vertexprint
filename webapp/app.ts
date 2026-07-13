@@ -218,6 +218,10 @@ class Canvas {
         this.camera.position.copy(center).add(dir.multiplyScalar(dist));
         this.controls.target.copy(center);
         this.controls.update();
+
+        this.camera.near = Math.max(0.1, radius / 100);
+        this.camera.far = dist + radius * 10;
+        this.camera.updateProjectionMatrix();
     }
 
     // Load and display geometry. The file extension determines how `data` is
@@ -307,7 +311,7 @@ class Canvas {
                 continue;
             }
 
-            const vx = v.get(0, 0)
+            const vx = v.get(0, 0);
             const vy = v.get(0, 1);
             const vz = v.get(0, 2);
 
