@@ -26,7 +26,6 @@
           pkgs.git
           pkgs.wget
           pkgs.deno
-          pkgs.docker
         ];
 
         nativeBuildInputs = with pkgs; [
