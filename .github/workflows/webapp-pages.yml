@@ -1,0 +1,90 @@
+name: Deploy webapp to GitHub Pages
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "webapp/**"
+      - ".github/workflows/webapp-pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
+
+      - name: Resolve openscad-wasm submodule commit
+        id: wasmkey
+        run: |
+          commit="$(git ls-tree HEAD webapp/openscad-wasm | awk '{print $3}')"
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
+
+      - name: Restore openscad-wasm build
+        id: wasm-cache
+        uses: actions/cache@v4
+        with:
+          path: webapp/openscad-wasm/build
+          key: openscad-wasm-release-${{ steps.wasmkey.outputs.commit }}
+
+      - name: Rewrite SSH GitHub URLs to HTTPS
+        if: steps.wasm-cache.outputs.cache-hit != 'true'
+        run: git config --global url."https://github.com/".insteadOf "git@github.com:"
+
+      - name: Init openscad-wasm submodule
+        if: steps.wasm-cache.outputs.cache-hit != 'true'
+        run: git submodule update --init --recursive webapp/openscad-wasm
+
+      - name: Build openscad-wasm
+        if: steps.wasm-cache.outputs.cache-hit != 'true'
+        run: make -C webapp/openscad-wasm ENV=release build/openscad.wasm.js
+
+      - name: Install webapp dependencies
+        working-directory: webapp
+        run: nix develop -c npm ci
+
+      - name: Build webapp
+        working-directory: webapp
+        run: nix develop -c npm run build
+
+      - name: Assemble deploy directory
+        working-directory: webapp
+        run: |
+          mkdir -p dist
+          cp index.html a.js a.css worker.js openscad.wasm openscad.wasm.js vertexprint.scad dist/
+          cp -r data fonts dist/
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: webapp/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
