@@ -6,6 +6,10 @@ out/
 node_modules
 a.*
 
+openscad.wasm
+openscad.wasm.js
+worker.js
+
 # Added by cargo
 
 /target
