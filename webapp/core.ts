@@ -530,15 +530,6 @@ class Polyhedron {
     // rod length = scale * |v1 - v2| - offset(v1, v2) - offset(v2, v1)
     // value appended to self.edges
     computeEdgeLengths(): void {
-        let maxDist = 0;
-        for (let i = 0; i < this.vertices.rows; i++) {
-            const d = this.vertices.getRowVector(i).norm();
-            if (d > maxDist) {
-                maxDist = d;
-            }
-        }
-        const scale = this.options.scale / maxDist;
-
         type KLO = { key: string; length: number; offsetLength: number, offsets: [number, number] };
         const klo: KLO[] = [];
         for (const key of this.edges.keys()) {
@@ -547,7 +538,8 @@ class Polyhedron {
             const v1_arr = this.vertices.getRowVector(v1);
             const v2_arr = this.vertices.getRowVector(v2);
             const length = Matrix.sub(v2_arr, v1_arr).norm();
-            const offsetLength = scale * length - v1_offset - v2_offset;
+            const offsetLength = this.options.scale * length - v1_offset - v2_offset;
+            console.log(this.options.scale * length)
             klo.push({ key, length, offsetLength, offsets: [v1_offset, v2_offset] });
         }
 
