@@ -478,8 +478,8 @@ const OPTIONS: Param[] = [
     {
         kind: 'slider',
         name: 'rodInset',
-        label: 'Tube depth',
-        desc: 'The depth of each tube.',
+        label: 'Tube length',
+        desc: 'Length of tube enveloping dowel rods.',
         min: 0,
         max: 100,
         step: 0.1,
@@ -490,7 +490,7 @@ const OPTIONS: Param[] = [
         kind: 'slider',
         name: 'minPrinterOverhangAngle',
         label: 'Overhang angle',
-        desc: 'The angle your vertex pieces can overhang by. 0° = any overhang, 90° = no overhang.',
+        desc: 'The angle by which your vertex pieces can overhang. At 0°, any overhang angle is permitted. At 90°, vertexprint minimizes overhangs.',
         min: 0,
         max: 90,
         step: 5,
@@ -501,11 +501,11 @@ const OPTIONS: Param[] = [
         kind: 'select',
         name: 'offsetType',
         label: 'Offset type',
-        desc: 'Dowel rods are offset from the center of each vertex to avoid them from colliding with each other. \
-            "Auto (per-edge)" allows a different offset for each edge at a given vertex. It is the most space-efficient.\
-            "Auto (per-vertex)" forces the same offset at each vertex, but allows different vertices to have different offsets. \
-            "Auto (global)" forces the entire solid to share an offset value. \
-            "Manual" allows you to select a global offset value.',
+        desc: 'Dowel rods are offset from the center of each vertex to avoid them from colliding with each other within a vertex piece.\n\
+            "Auto (per-edge)" allows a different offset for each edge at a given vertex. It is the most space-efficient.\n\
+            "Auto (per-vertex)" forces the same offset at each vertex, but allows different vertices to have different offsets.\n\
+            "Auto (global)" forces the entire solid to share an offset value.\n\
+            "Manual" allows you to select a global offset value.\n',
         value: 'auto_per_edge',
         options: [
             { value: 'fixed', label: 'Manual' },
@@ -538,6 +538,66 @@ const OPTIONS: Param[] = [
         ],
     },
 ];
+
+// Build and position a tooltip element for `host`, returning it.
+function makeTooltip(host: HTMLElement, text: string): HTMLDivElement {
+    const tip = document.createElement('div');
+    tip.className = 'dh-tooltip';
+    const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    tip.innerHTML = lines.map(l => `<p>${l}</p>`).join('');
+    document.body.appendChild(tip);
+
+    const r = host.getBoundingClientRect();
+    const tw = tip.offsetWidth;
+    const th = tip.offsetHeight;
+    const gap = 6;
+
+    // Place tooltip below the host element. Place it above if it overflows the
+    // viewport.
+    let top = r.bottom + gap;
+    if (top + th > window.innerHeight) top = r.top - th - gap;
+    if (top < 0) top = gap;
+
+    // Left-align the tooltip with the host. Clamp to viewport if this is not possible.
+    let left = r.left;
+    if (left + tw > window.innerWidth - gap) left = window.innerWidth - tw - gap;
+    if (left < gap) left = gap;
+    tip.style.top = `${top}px`;
+    tip.style.left = `${left}px`;
+    return tip;
+}
+
+// Bind a tooltip to a html element
+function bindTooltip(element: HTMLElement, text: string) {
+    let tip: HTMLDivElement | null = null;
+    let timer: number | null = null;
+    const title = element.getAttribute('title');
+    const show = () => {
+        if (tip || timer) return;
+        // strip title while tooltip shows, keep title otherwise for screen
+        // readers
+        if (title !== null) element.removeAttribute('title');
+        // 1s delay before tooltip shows
+        timer = window.setTimeout(() => {
+            timer = null;
+            tip = makeTooltip(element, text);
+        }, 600);
+    };
+    const hide = () => {
+        if (timer !== null) {
+            window.clearTimeout(timer); timer = null;
+        }
+        if (title !== null) element.setAttribute('title', title);
+        if (tip) {
+            tip.remove(); tip = null;
+        }
+    };
+    element.addEventListener('mouseenter', show);
+    element.addEventListener('focus', show);
+    element.addEventListener('mouseleave', hide);
+    element.addEventListener('blur', hide);
+    element.addEventListener('keydown', (e) => { if (e.key === 'Escape') hide(); });
+}
 
 const TW_CLASS = {
     row: 'flex flex-col gap-0.5 px-1.5 py-1',
@@ -576,10 +636,11 @@ class Sidebar {
         row.className = TW_CLASS.row;
         row.dataset.param = param.name;
         row.innerHTML =
-            `<div class="${TW_CLASS.top}"><span class="${TW_CLASS.label}" title="${param.desc}">${param.label}</span>`
+            `<div class="${TW_CLASS.top}"><span class="${TW_CLASS.label}">${param.label}</span>`
             + `<div class="relative"><input class="${TW_CLASS.num}" type="number" value="${param.value}">`
             + `<span class="${TW_CLASS.unit}">${param.unit}</span></div></div>`
             + `<input class="${TW_CLASS.slider}" type="range" min="${param.min}" max="${param.max}" step="${param.step}" value="${param.value}">`;
+        bindTooltip(row.querySelector('.opt-label')!, param.desc);
         return row
     }
 
@@ -590,8 +651,9 @@ class Sidebar {
         const paramsHTML = param.options.map(o =>
             `<option value="${o.value}"${o.value === param.value ? ' selected' : ''}>${o.label}</option>`).join('');
         row.innerHTML =
-            `<div class="${TW_CLASS.top}"><span class="${TW_CLASS.label}" title="${param.desc}">${param.label}</span></div>`
+            `<div class="${TW_CLASS.top}"><span class="${TW_CLASS.label}">${param.label}</span></div>`
             + `<select class="${TW_CLASS.select}">${paramsHTML}</select>`;
+        bindTooltip(row.querySelector('.opt-label')!, param.desc);
         return row
     }
 
@@ -694,7 +756,10 @@ class Sidebar {
 
         // Open/close sidebar
         const sidebar_reopen = document.getElementById('sidebar-reopen')!;
-        document.getElementById('sidebar-close')!.addEventListener('click', () => {
+        const sidebar_close = document.getElementById('sidebar-close')!;
+        bindTooltip(sidebar_close, 'Close sidebar');
+        bindTooltip(sidebar_reopen, 'Show sidebar');
+        sidebar_close.addEventListener('click', () => {
             sidebar.style.display = 'none';
             sidebar_reopen.style.display = 'flex';
         });
@@ -753,7 +818,10 @@ function initInspector() {
 
     // Open/close inspector
     const inspector_reopen = document.getElementById('inspector-reopen')!;
-    document.getElementById('inspector-close')!.addEventListener('click', () => {
+    const inspector_close = document.getElementById('inspector-close')!;
+    bindTooltip(inspector_close, 'Close inspector');
+    bindTooltip(inspector_reopen, 'Show inspector');
+    inspector_close.addEventListener('click', () => {
         inspector.style.display = 'none';
         inspector_reopen.style.display = 'flex';
     });
@@ -849,6 +917,7 @@ const PRESETS: Record<string, Record<string, { file: string; scale: number }>> =
 function initPresetsMenu(canvas: Canvas, sidebar: Sidebar) {
     const presets_button = document.getElementById('presets-button')!;
     const presets_menu = document.getElementById('presets-menu')!;
+    bindTooltip(presets_button, 'Open presets');
 
     for (const [category, solids] of Object.entries(PRESETS)) {
         const header = document.createElement('p');
@@ -892,6 +961,7 @@ function initPresetsMenu(canvas: Canvas, sidebar: Sidebar) {
 
 function initUploadButton(canvas: Canvas) {
     const button = document.getElementById('upload-button')!;
+    bindTooltip(button, 'Upload files');
     button.addEventListener('click', () => {
         const input = document.createElement('input');
         input.type = 'file';
@@ -910,6 +980,7 @@ function initUploadButton(canvas: Canvas) {
 
 function initConstructButton(canvas: Canvas) {
     const button = document.getElementById('construct-button')!;
+    bindTooltip(button, 'Vertexprint your structure');
     const label = button.querySelector('p')!;
     const IDLE_TEXT = 'Construct';
 
@@ -970,6 +1041,7 @@ function enableDownloadButton(outputs: VertexPrintOutputs) {
     const button = resetDownloadButton();
     button.classList.remove('text-v-fg/70', 'cursor-not-allowed');
     button.classList.add('text-v-fg', 'cursor-pointer', 'hover:bg-v-blue', 'hover:text-v-dark');
+    bindTooltip(button, 'Download generated artifacts.\nYou must generate artifacts before a download.');
     button.addEventListener('click', () => { void saveOutputs(outputs); });
 }
 
@@ -977,6 +1049,7 @@ function disableDownloadButton() {
     const button = resetDownloadButton();
     button.classList.add('text-v-fg/70', 'cursor-not-allowed');
     button.classList.remove('text-v-fg', 'cursor-pointer', 'hover:bg-v-blue', 'hover:text-v-dark');
+    bindTooltip(button, 'Download generated artifacts.\nYou must generate artifacts before a download.');
 }
 
 async function initMesh(canvas: Canvas, sidebar: Sidebar) {
@@ -993,6 +1066,8 @@ async function init() {
     initUploadButton(canvas);
     initConstructButton(canvas);
     disableDownloadButton();
+    bindTooltip(document.getElementById('help-button')!, 'Help');
+    bindTooltip(document.getElementById('source-link')!, 'Source code');
     initMesh(canvas, sidebar);
 }
 

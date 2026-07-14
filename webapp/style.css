@@ -75,3 +75,19 @@ input[type="number"] { -moz-appearance: textfield; }
 
 /* Text on hover is underlined */
 .opt-label:hover { text-decoration: underline; }
+
+.dh-tooltip {
+    position: fixed;
+    z-index: 100;
+    max-width: 256px;
+    padding: 8px 8px;
+    background: var(--color-v-dark);
+    color: var(--color-v-fg);
+    border: 1px solid var(--color-v-border);
+    font-family: monospace;
+    font-size: 11px;
+    line-height: 1.4;
+    pointer-events: none;
+}
+.dh-tooltip p { margin: 0; }
+.dh-tooltip p + p { margin-top: 4px; }
