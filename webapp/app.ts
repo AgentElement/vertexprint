@@ -92,9 +92,10 @@ function makeOrientationCube(renderer: THREE.WebGLRenderer):
 
 class Canvas {
     scene: THREE.Scene;
-    camera: THREE.PerspectiveCamera;
+    camera: THREE.OrthographicCamera;
     controls: OrbitControls;
     root: THREE.Group;
+    viewHalfHeight: number;
 
     currentMesh: THREE.Mesh | null;
     currentName: string;
@@ -133,7 +134,13 @@ class Canvas {
         this.root = new THREE.Group();
         this.root.rotation.x = -Math.PI / 2;
         this.scene.add(this.root);
+
+        this.camera = new THREE.OrthographicCamera();
         this.camera.position.set(20, 15, 20);
+        this.camera.near = 0.1;
+        this.camera.far = 1000;
+        this.viewHalfHeight = 15;
+        this.updateFrustum();
 
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
@@ -149,17 +156,24 @@ class Canvas {
         this.scene.add(new THREE.HemisphereLight(V_FG, V_BG, 1));
 
         const keyLight = new THREE.DirectionalLight(V_FG, 2);
-        keyLight.position.set(10, 20, 15);
-        this.scene.add(keyLight);
+        this.camera.add(keyLight);
+        this.camera.add(keyLight.target);
+        keyLight.position.set(0, 0, 0);
+        keyLight.target.position.set(0, 0, -1);
 
         const fillLight = new THREE.DirectionalLight(V_FG, 0.8);
-        fillLight.position.set(-10, -5, -15);
-        this.scene.add(fillLight);
+        this.camera.add(fillLight);
+        this.camera.add(fillLight.target);
+        fillLight.position.set(1, -1, 0);
+        fillLight.target.position.set(0, 0, -1);
+
+        this.scene.add(this.camera);
 
         const mesh = new THREE.Mesh(new THREE.BufferGeometry(), this.meshMaterial);
         this.root.add(mesh);
         this.currentMesh = mesh;
-        await this.loadFile(DEFAULT_MODEL);
+        const data = await fetch(DATA_DIR + DEFAULT_MODEL).then((r) => r.arrayBuffer());
+        this.loadGeometry(DEFAULT_MODEL, data);
 
         const [cube, cubeScene, cubeCamera] = makeOrientationCube(renderer);
 
@@ -194,10 +208,22 @@ class Canvas {
         animate();
 
         window.addEventListener("resize", () => {
-            this.camera.aspect = window.innerWidth / window.innerHeight;
-            this.camera.updateProjectionMatrix();
+            this.updateFrustum();
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
+    }
+
+    // Recompute the orthographic view frustum from the current half-height
+    // and window aspect ratio.
+    updateFrustum() {
+        const aspect = window.innerWidth / window.innerHeight;
+        const h = this.viewHalfHeight;
+        const w = h * aspect;
+        this.camera.left = -w;
+        this.camera.right = w;
+        this.camera.top = h;
+        this.camera.bottom = -h;
+        this.camera.updateProjectionMatrix();
     }
 
     // Reposition camera so every mesh currently in the scene is in frame,
@@ -210,9 +236,7 @@ class Canvas {
         const radius = sphere.radius || 1;
         const center = sphere.center;
 
-        const fovV = (this.camera.fov * Math.PI) / 180;
-        const fovH = 2 * Math.atan(Math.tan(fovV / 2) * this.camera.aspect);
-        const dist = (radius / Math.sin(Math.min(fovV, fovH) / 2)) * 1.25;
+        const dist = radius * 3;
 
         const dir = new THREE.Vector3()
             .copy(this.camera.position)
@@ -223,9 +247,12 @@ class Canvas {
         this.controls.target.copy(center);
         this.controls.update();
 
+        const aspect = window.innerWidth / window.innerHeight;
+        this.viewHalfHeight = (radius / Math.min(1, aspect)) * 1.25;
+
         this.camera.near = Math.max(0.1, radius / 100);
         this.camera.far = dist + radius * 10;
-        this.camera.updateProjectionMatrix();
+        this.updateFrustum();
     }
 
     // Load and display geometry. The file extension determines how `data` is
