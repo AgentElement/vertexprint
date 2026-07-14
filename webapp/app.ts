@@ -172,8 +172,6 @@ class Canvas {
         const mesh = new THREE.Mesh(new THREE.BufferGeometry(), this.meshMaterial);
         this.root.add(mesh);
         this.currentMesh = mesh;
-        const data = await fetch(DATA_DIR + DEFAULT_MODEL).then((r) => r.arrayBuffer());
-        this.loadGeometry(DEFAULT_MODEL, data);
 
         const [cube, cubeScene, cubeCamera] = makeOrientationCube(renderer);
 
@@ -472,10 +470,10 @@ const OPTIONS: Param[] = [
         label: 'Scale',
         desc: 'Scale factor. Vertexprinted objects are typically larger than than the original object, so this starts out large.',
         min: 0,
-        max: 1000,
-        step: 1,
-        value: 100,
-        unit: '%',
+        max: 100,
+        step: 0.01,
+        value: 1.00,
+        unit: 'x',
     },
     {
         kind: 'slider',
@@ -485,7 +483,7 @@ const OPTIONS: Param[] = [
         min: 0,
         max: 100,
         step: 0.1,
-        value: 10,
+        value: 6,
         unit: 'mm',
     },
     {
@@ -496,7 +494,7 @@ const OPTIONS: Param[] = [
         min: 0,
         max: 90,
         step: 5,
-        value: 15,
+        value: 45,
         unit: '°',
     },
     {
@@ -606,6 +604,30 @@ class Sidebar {
                         this.rows.get(r)!.style.display = 'none';
                 }
             }
+        }
+    }
+
+    // Programmatically set a param value and update the corresponding UI
+    // element.
+    setParam(name: NumberKeys | StringKeys, value: number | string) {
+        const row = this.rows.get(name as string);
+        if (!row) return;
+        const param = OPTIONS.find(p => p.name === name);
+        if (!param) return;
+        if (param.kind === 'slider') {
+            const slider = row.querySelector('.dh-slider') as HTMLInputElement;
+            const num = row.querySelector('input[type="number"]') as HTMLInputElement;
+            const v = clamp(value as number, param.min, param.max);
+            slider.value = String(v);
+            num.value = String(v);
+            PARAMS[param.name] = v;
+            const pct = (v - param.min) / (param.max - param.min) * 100;
+            slider.style.setProperty('--fill', `${pct}%`);
+        } else {
+            const sel = row.querySelector('select') as HTMLSelectElement;
+            sel.value = String(value);
+            PARAMS[param.name] = value as any;
+            this.enforceSelects();
         }
     }
 
@@ -776,52 +798,51 @@ function populateInspector(outputs: VertexPrintOutputs) {
     edgesPane.innerHTML = ehtml;
 }
 
-// Presets dropdown entries
-const PRESETS: Record<string, Record<string, string>> = {
+const PRESETS: Record<string, Record<string, { file: string; scale: number }>> = {
     'Platonic solids': {
-        'Tetrahedron': 'Tetrahedron.obj',
-        'Cube': 'Cube.obj',
-        'Octahedron': 'Octahedron.obj',
-        'Dodecahedron': 'Dodecahedron.obj',
-        'Icosahedron': 'Icosahedron.obj',
+        'Tetrahedron': { file: 'Tetrahedron.obj', scale: 50 },
+        'Cube': { file: 'Cube.obj', scale: 50 },
+        'Octahedron': { file: 'Octahedron.obj', scale: 50 },
+        'Dodecahedron': { file: 'Dodecahedron.obj', scale: 50 },
+        'Icosahedron': { file: 'Icosahedron.obj', scale: 50 },
     },
     'Archimedean solids': {
-        'Truncated Tetrahedron': 'TruncatedTetrahedron.obj',
-        'Cuboctahedron': 'Cuboctahedron.obj',
-        'Truncated Cube': 'TruncatedCube.obj',
-        'Truncated Octahedron': 'TruncatedOctahedron.obj',
-        'Rhombicuboctahedron': 'Rhombicuboctahedron.obj',
-        'Truncated Cuboctahedron': 'TruncatedCuboctahedron.obj',
-        'Snub Cube (laevo)': 'LsnubCube.obj',
-        'Icosidodecahedron': 'Icosidodecahedron.obj',
-        'Truncated Dodecahedron': 'TruncatedDodecahedron.obj',
-        'Truncated Icosahedron': 'TruncatedIcosahedron.obj',
-        'Rhombicosidodecahedron': 'Rhombicosidodecahedron.obj',
-        'Truncated Icosidodecahedron': 'TruncatedIcosidodecahedron.obj',
-        'Snub Dodecahedron (laevo)': 'LsnubDodecahedron.obj',
+        'Truncated Tetrahedron': { file: 'TruncatedTetrahedron.obj', scale: 50 },
+        'Cuboctahedron': { file: 'Cuboctahedron.obj', scale: 50 },
+        'Truncated Cube': { file: 'TruncatedCube.obj', scale: 50 },
+        'Truncated Octahedron': { file: 'TruncatedOctahedron.obj', scale: 50 },
+        'Rhombicuboctahedron': { file: 'Rhombicuboctahedron.obj', scale: 50 },
+        'Truncated Cuboctahedron': { file: 'TruncatedCuboctahedron.obj', scale: 50 },
+        'Snub Cube (laevo)': { file: 'LsnubCube.obj', scale: 50 },
+        'Icosidodecahedron': { file: 'Icosidodecahedron.obj', scale: 50 },
+        'Truncated Dodecahedron': { file: 'TruncatedDodecahedron.obj', scale: 50 },
+        'Truncated Icosahedron': { file: 'TruncatedIcosahedron.obj', scale: 50 },
+        'Rhombicosidodecahedron': { file: 'Rhombicosidodecahedron.obj', scale: 50 },
+        'Truncated Icosidodecahedron': { file: 'TruncatedIcosidodecahedron.obj', scale: 50 },
+        'Snub Dodecahedron (laevo)': { file: 'LsnubDodecahedron.obj', scale: 50 },
     },
     'Catalan solids': {
-        'Triakis Tetrahedron': 'TriakisTetrahedron.obj',
-        'Rhombic Dodecahedron': 'RhombicDodecahedron.obj',
-        'Triakis Octahedron': 'TriakisOctahedron.obj',
-        'Tetrakis Hexahedron': 'TetrakisHexahedron.obj',
-        'Deltoidal Icositetrahedron': 'DeltoidalIcositetrahedron.obj',
-        'Disdyakis Dodecahedron': 'DisdyakisDodecahedron.obj',
-        'Pentagonal Icositetrahedron (laevo)': 'LpentagonalIcositetrahedron.obj',
-        'Rhombic Triacontahedron': 'RhombicTriacontahedron.obj',
-        'Triakis Icosahedron': 'TriakisIcosahedron.obj',
-        'Pentakis Dodecahedron': 'PentakisDodecahedron.obj',
-        'Deltoidal Hexecontahedron': 'DeltoidalHexecontahedron.obj',
-        'Disdyakis Triacontahedron': 'DisdyakisTriacontahedron.obj',
-        'Pentagonal Hexecontahedron (laevo)': 'LpentagonalHexecontahedron.obj',
+        'Triakis Tetrahedron': { file: 'TriakisTetrahedron.obj', scale: 50 },
+        'Rhombic Dodecahedron': { file: 'RhombicDodecahedron.obj', scale: 50 },
+        'Triakis Octahedron': { file: 'TriakisOctahedron.obj', scale: 50 },
+        'Tetrakis Hexahedron': { file: 'TetrakisHexahedron.obj', scale: 50 },
+        'Deltoidal Icositetrahedron': { file: 'DeltoidalIcositetrahedron.obj', scale: 50 },
+        'Disdyakis Dodecahedron': { file: 'DisdyakisDodecahedron.obj', scale: 50 },
+        'Pentagonal Icositetrahedron (laevo)': { file: 'LpentagonalIcositetrahedron.obj', scale: 50 },
+        'Rhombic Triacontahedron': { file: 'RhombicTriacontahedron.obj', scale: 50 },
+        'Triakis Icosahedron': { file: 'TriakisIcosahedron.obj', scale: 50 },
+        'Pentakis Dodecahedron': { file: 'PentakisDodecahedron.obj', scale: 50 },
+        'Deltoidal Hexecontahedron': { file: 'DeltoidalHexecontahedron.obj', scale: 50 },
+        'Disdyakis Triacontahedron': { file: 'DisdyakisTriacontahedron.obj', scale: 50 },
+        'Pentagonal Hexecontahedron (laevo)': { file: 'LpentagonalHexecontahedron.obj', scale: 50 },
     },
     'Misc': {
-        'Stanford Bunny': 'bunny.stl',
-        'Rhombic Dodecahedron Tiling': '13RhombicDodecahedra.obj',
+        'Stanford Bunny': { file: 'bunny.stl', scale: 6 },
+        'Rhombic Dodecahedron Tiling': { file: '13RhombicDodecahedra.obj', scale: 50 },
     },
 };
 
-function initPresetsMenu(canvas: Canvas) {
+function initPresetsMenu(canvas: Canvas, sidebar: Sidebar) {
     const presets_button = document.getElementById('presets-button')!;
     const presets_menu = document.getElementById('presets-menu')!;
 
@@ -830,13 +851,15 @@ function initPresetsMenu(canvas: Canvas) {
         header.textContent = category;
         header.className = 'font-mono text-xs px-3 pt-2 pb-1 text-v-fg/60 border-b border-v-border min-w-full';
         presets_menu.appendChild(header);
-        for (const [label, file] of Object.entries(solids)) {
+        for (const [label, preset] of Object.entries(solids)) {
+            const { file, scale } = preset;
             const item = document.createElement('button');
             item.type = 'button';
             item.textContent = label;
             item.dataset.file = file;
             item.className = 'block w-full cursor-pointer text-left font-mono text-xs px-3 py-1 text-v-fg hover:bg-v-blue hover:text-v-dark';
             item.addEventListener('click', async () => {
+                sidebar.setParam('scale', scale);
                 const data = await fetch(DATA_DIR + file).then((r) => r.arrayBuffer())
                 canvas.loadGeometry(file, data);
             });
@@ -952,14 +975,21 @@ function disableDownloadButton() {
     button.classList.remove('text-v-fg', 'cursor-pointer', 'hover:bg-v-blue', 'hover:text-v-dark');
 }
 
+async function initMesh(canvas: Canvas, sidebar: Sidebar) {
+    sidebar.setParam('scale', 50);
+    const data = await fetch(DATA_DIR + DEFAULT_MODEL).then((r) => r.arrayBuffer());
+    canvas.loadGeometry(DEFAULT_MODEL, data);
+}
+
 async function init() {
     const canvas = new Canvas();
-    new Sidebar();
+    const sidebar = new Sidebar();
     initInspector();
-    initPresetsMenu(canvas);
+    initPresetsMenu(canvas, sidebar);
     initUploadButton(canvas);
     initConstructButton(canvas);
     disableDownloadButton();
+    initMesh(canvas, sidebar);
 }
 
 init();
