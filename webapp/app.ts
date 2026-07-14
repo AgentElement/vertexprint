@@ -435,7 +435,7 @@ const OPTIONS: Param[] = [
         kind: 'slider',
         name: 'diameterTolerance',
         label: 'Diameter tolerance',
-        desc: 'Additional tolerance added to the diameter.\nI recommend adding about 12% of your diameter for wood dowel rods, and 5% for metal',
+        desc: 'Additional tolerance added to the diameter.\nAdd about 12% of your diameter for wood dowel rods, and 5% of your diameter for metal dowel rods',
         min: 0,
         max: 1,
         step: 0.01,
@@ -446,7 +446,7 @@ const OPTIONS: Param[] = [
         kind: 'slider',
         name: 'diameterTaper',
         label: 'Diameter taper',
-        desc: 'The rod holder diameter decreases by this amount. A small taper is helpful to account for small amounts of unevenness in the diameters of your dowel rods, particularly for wood dowel rods',
+        desc: 'The rod holder diameter decreases by this amount. A small taper is helpful to account for unevenness in the diameters of your dowel rods, particularly for wood dowel rods',
         min: 0,
         max: 1,
         step: 0.01,
@@ -468,7 +468,7 @@ const OPTIONS: Param[] = [
         kind: 'slider',
         name: 'scale',
         label: 'Scale',
-        desc: 'Scale factor. Vertexprinted objects are typically larger than than the original object, so this starts out large.',
+        desc: 'Scale factor. Vertexprinted objects are typically larger than than the original object. Objects that are too small risk having their vertex pieces collide.',
         min: 0,
         max: 100,
         step: 0.01,
@@ -479,7 +479,7 @@ const OPTIONS: Param[] = [
         kind: 'slider',
         name: 'rodInset',
         label: 'Tube depth',
-        desc: 'The depth of each tube',
+        desc: 'The depth of each tube.',
         min: 0,
         max: 100,
         step: 0.1,
@@ -489,8 +489,8 @@ const OPTIONS: Param[] = [
     {
         kind: 'slider',
         name: 'minPrinterOverhangAngle',
-        label: 'Maximum overhang angle',
-        desc: 'The maximum overhang angle your printer allows',
+        label: 'Overhang angle',
+        desc: 'The angle your vertex pieces can overhang by. 0° = any overhang, 90° = no overhang.',
         min: 0,
         max: 90,
         step: 5,
@@ -501,7 +501,11 @@ const OPTIONS: Param[] = [
         kind: 'select',
         name: 'offsetType',
         label: 'Offset type',
-        desc: 'placeholder', // complicated explanation
+        desc: 'Dowel rods are offset from the center of each vertex to avoid them from colliding with each other. \
+            "Auto (per-edge)" allows a different offset for each edge at a given vertex. It is the most space-efficient.\
+            "Auto (per-vertex)" forces the same offset at each vertex, but allows different vertices to have different offsets. \
+            "Auto (global)" forces the entire solid to share an offset value. \
+            "Manual" allows you to select a global offset value.',
         value: 'auto_per_edge',
         options: [
             { value: 'fixed', label: 'Manual' },
@@ -515,7 +519,7 @@ const OPTIONS: Param[] = [
         kind: 'slider',
         name: 'manualOffset',
         label: 'Offset',
-        desc: 'placeholder', // see comment above
+        desc: 'Manually set a global offset value.', // see comment above
         min: 0,
         max: 100,
         step: 0.01,
@@ -526,7 +530,7 @@ const OPTIONS: Param[] = [
         kind: 'select',
         name: 'renderQuality',
         label: 'Render quality',
-        desc: 'placeholder',
+        desc: 'Quality of part. "Preview" renderes with fewer triangles. Always render with "Final" before printing.',
         value: 'preview',
         options: [
             { value: 'preview', label: 'Preview' },
