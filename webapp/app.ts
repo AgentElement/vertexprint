@@ -101,14 +101,17 @@ class Canvas {
     currentName: string;
     currentData: ArrayBuffer;
 
-    currentVertices: THREE.Mesh[];
+    currentMeshes: THREE.Mesh[];
+    vertexCount: number;
     vertexMaterial: THREE.MeshStandardMaterial;
     edgeMaterial: THREE.MeshStandardMaterial;
     meshMaterial: THREE.MeshStandardMaterial;
+    highlightMaterial: THREE.MeshStandardMaterial;
+    highlighted: number[];
 
     constructor() {
         this.currentMesh = null;
-        this.currentVertices = [];
+        this.currentMeshes = [];
         this.vertexMaterial = new THREE.MeshStandardMaterial({
             color: V_BLUE,
             flatShading: false,
@@ -121,8 +124,14 @@ class Canvas {
             color: V_BLUE,
             flatShading: false,
         });
+        this.highlightMaterial = new THREE.MeshStandardMaterial({
+            color: 0xff0000,
+            flatShading: false,
+        });
         this.currentName = DEFAULT_MODEL;
         this.currentData = new ArrayBuffer(0);
+        this.highlighted = [];
+        this.vertexCount = 0;
 
         this.initCanvas();
     }
@@ -290,6 +299,7 @@ class Canvas {
     loadVertexPrintOutputs(outputs: VertexPrintOutputs) {
         this.clear()
         const polyhedron = outputs.polyhedron;
+        this.vertexCount = polyhedron.vertexFigures.length;
         for (let i = 0; i < polyhedron.vertexFigures.length; ++i) {
             const geometry = new STLLoader().parse(outputs.stls[i]);
             geometry.computeVertexNormals();
@@ -302,7 +312,7 @@ class Canvas {
             mesh.position.set(x, y, z);
             mesh.rotation.set(rotation[0], rotation[1], rotation[2], "ZYX");
             this.root.add(mesh);
-            this.currentVertices.push(mesh)
+            this.currentMeshes.push(mesh)
         }
 
         this.loadEdges(outputs)
@@ -356,21 +366,42 @@ class Canvas {
             mesh.rotation.set(0, theta, phi, "ZYX");
 
             this.root.add(mesh);
-            this.currentVertices.push(mesh);
+            this.currentMeshes.push(mesh);
         }
     }
 
     // Clear scene of all meshes
     clear() {
-        for (const mesh of this.currentVertices) {
+        for (const mesh of this.currentMeshes) {
             mesh.geometry.dispose();
             this.root.remove(mesh);
         }
-        this.currentVertices = [];
+        this.currentMeshes = [];
         if (this.currentMesh) {
             this.currentMesh.geometry.dispose();
             this.currentMesh.geometry = new THREE.BufferGeometry();
         }
+        this.highlighted = [];
+        this.vertexCount = 0;
+    }
+
+    highlightVertex(index: number) {
+        this.currentMeshes[index].material = this.highlightMaterial;
+        this.highlighted.push(index)
+    }
+
+    highlightEdge(index: number) {
+        const meshIndex = this.vertexCount + index;
+        this.currentMeshes[meshIndex].material = this.highlightMaterial;
+        this.highlighted.push(meshIndex)
+    }
+
+    clearHighlights() {
+        for (const v of this.highlighted) {
+            const mat = v < this.vertexCount ? this.vertexMaterial : this.edgeMaterial;
+            this.currentMeshes[v].material = mat;
+        }
+        this.highlighted = [];
     }
 }
 
@@ -842,7 +873,7 @@ function resetInspector() {
 
 // Fill the vertex inspector with vertex-edge adjacencies
 // Fill the edge inspector with edge-vertex adjacencies, and offset-adjusted edge length
-function populateInspector(outputs: VertexPrintOutputs) {
+function populateInspector(outputs: VertexPrintOutputs, canvas: Canvas) {
     const polyhedron = outputs.polyhedron;
     const verticesPane = document.querySelector<HTMLElement>('.inspector-pane[data-pane="vertices"]')!;
     const edgesPane = document.querySelector<HTMLElement>('.inspector-pane[data-pane="edges"]')!;
@@ -851,9 +882,16 @@ function populateInspector(outputs: VertexPrintOutputs) {
     let vhtml = `<p class="mb-1 text-v-fg/70">${vertexCount} vertices</p>`;
     vhtml += `<div class="mb-1 text-v-fg/50">index, edges</div>`;
     for (const vf of polyhedron.vertexFigures) {
-        vhtml += `<div class="mb-0.5"><span class="text-v-blue">v${vf.vertexIndex}</span> <span class="text-v-fg/70">[${vf.edges.join(", ")}]</span></div>`;
+        vhtml += `<div class="mb-0.5"><span class="text-v-blue cursor-pointer opt-label" id=v${vf.vertexIndex}>v${vf.vertexIndex}</span> <span class="text-v-fg/70">[${vf.edges.join(", ")}]</span></div>`;
     }
     verticesPane.innerHTML = vhtml;
+
+    for (let i = 0; i < polyhedron.vertexFigures.length; ++i) {
+        const vi = document.getElementById(`v${i}`);
+        vi.addEventListener('click', () => {
+            canvas.highlightVertex(i);
+        });
+    }
 
     const edges = [...polyhedron.edges.entries()]
         .map(([key, field]) => {
@@ -865,9 +903,23 @@ function populateInspector(outputs: VertexPrintOutputs) {
     let ehtml = `<p class="mb-1 text-v-fg/70">${edges.length} edges</p>`;
     ehtml += `<div class="mb-1 text-v-fg/50">index, vertices, length (mm)</div>`;
     for (const e of edges) {
-        ehtml += `<div class="mb-0.5"><span class="text-v-blue">e${e.name}</span> <span class="text-v-fg/70">[${e.v1} ${e.v2}]</span> ${e.offsetLength.toFixed(2)}</div>`;
+        ehtml += `<div class="mb-0.5"><span class="text-v-blue cursor-pointer opt-label" id=e${e.name}>e${e.name}</span> <span class="text-v-fg/70">[${e.v1} ${e.v2}]</span> ${e.offsetLength.toFixed(2)}</div>`;
     }
     edgesPane.innerHTML = ehtml;
+
+    for (let i = 0; i < edges.length; ++i) {
+        const vi = document.getElementById(`e${i}`);
+        vi.addEventListener('click', () => {
+            canvas.highlightEdge(i);
+        });
+    }
+
+    document.addEventListener('click', (e) => {
+        const t = e.target as Node;
+        if (!verticesPane.contains(t) && !edgesPane.contains(t)) {
+            canvas.clearHighlights();
+        }
+    });
 }
 
 const PRESETS: Record<string, Record<string, { file: string; scale: number }>> = {
@@ -1005,7 +1057,7 @@ function initConstructButton(canvas: Canvas) {
         label.textContent = IDLE_TEXT;
         button.classList.remove('opacity-70', 'pointer-events-none');
         enableDownloadButton(outputs);
-        populateInspector(outputs);
+        populateInspector(outputs, canvas);
     });
 }
 

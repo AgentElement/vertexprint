@@ -539,15 +539,16 @@ class Polyhedron {
             const v2_arr = this.vertices.getRowVector(v2);
             const length = Matrix.sub(v2_arr, v1_arr).norm();
             const offsetLength = this.options.scale * length - v1_offset - v2_offset;
-            console.log(this.options.scale * length)
             klo.push({ key, length, offsetLength, offsets: [v1_offset, v2_offset] });
         }
 
         klo.sort((x, y) => x.offsetLength - y.offsetLength);
+        const sorted = new Map<string, EdgeField>();
         for (let i = 0; i < klo.length; i++) {
             const { key, length, offsetLength, offsets } = klo[i];
-            this.edges.set(key, { length, offsetLength, name: i, offsets });
+            sorted.set(key, { length, offsetLength, name: i, offsets });
         }
+        this.edges = sorted;
     }
 
     // Convert facelist into edgelist
