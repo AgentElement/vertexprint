@@ -260,6 +260,8 @@ class Canvas {
     loadGeometry(name: string, data: ArrayBuffer) {
         if (!this.currentMesh) return;
         this.clear();
+        this.currentName = name;
+        this.currentData = data;
         let geometry: THREE.BufferGeometry;
         try {
             const isObj = name.toLowerCase().endsWith(".obj");
@@ -281,23 +283,10 @@ class Canvas {
         geometry.center();
         geometry.computeVertexNormals();
         this.currentMesh.geometry = geometry;
+
+        disableDownloadButton();
+        resetInspector();
         this.fitView();
-    }
-
-    // Load a preset.
-    async loadFile(filename: string) {
-        const data = await fetch(DATA_DIR + filename).then((r) => r.arrayBuffer())
-        this.currentName = filename;
-        this.currentData = data;
-        return this.loadGeometry(filename, data);
-    }
-
-    // Load a file selected through the upload button.
-    async loadUserFile(file: File) {
-        const data = await file.arrayBuffer();
-        this.currentName = file.name;
-        this.currentData = data;
-        return this.loadGeometry(file.name, data);
     }
 
     loadVertexPrintOutputs(outputs: VertexPrintOutputs) {
@@ -742,10 +731,49 @@ function initInspector() {
         inspector.style.display = 'none';
         inspector_reopen.style.display = 'flex';
     });
+
     inspector_reopen.addEventListener('click', () => {
         inspector.style.display = '';
         inspector_reopen.style.display = 'none';
     });
+}
+
+// Reset the inspector panes
+function resetInspector() {
+    const msg = 'This pane will populate after you generate artifacts';
+    document.querySelectorAll<HTMLElement>('.inspector-pane').forEach((p) => {
+        p.innerHTML = `<p class="text-v-fg/70">${msg}</p>`;
+    });
+}
+
+// Fill the vertex inspector with vertex-edge adjacencies
+// Fill the edge inspector with edge-vertex adjacencies, and offset-adjusted edge length
+function populateInspector(outputs: VertexPrintOutputs) {
+    const polyhedron = outputs.polyhedron;
+    const verticesPane = document.querySelector<HTMLElement>('.inspector-pane[data-pane="vertices"]')!;
+    const edgesPane = document.querySelector<HTMLElement>('.inspector-pane[data-pane="edges"]')!;
+
+    const vertexCount = polyhedron.vertexFigures.length;
+    let vhtml = `<p class="mb-1 text-v-fg/70">${vertexCount} vertices</p>`;
+    vhtml += `<div class="mb-1 text-v-fg/50">index, edges</div>`;
+    for (const vf of polyhedron.vertexFigures) {
+        vhtml += `<div class="mb-0.5"><span class="text-v-blue">v${vf.vertexIndex}</span> <span class="text-v-fg/70">[${vf.edges.join(", ")}]</span></div>`;
+    }
+    verticesPane.innerHTML = vhtml;
+
+    const edges = [...polyhedron.edges.entries()]
+        .map(([key, field]) => {
+            const [v1, v2] = key.split(",").map(Number);
+            return { name: field.name, v1, v2, offsetLength: field.offsetLength };
+        })
+        .sort((a, b) => a.name - b.name);
+
+    let ehtml = `<p class="mb-1 text-v-fg/70">${edges.length} edges</p>`;
+    ehtml += `<div class="mb-1 text-v-fg/50">index, vertices, length (mm)</div>`;
+    for (const e of edges) {
+        ehtml += `<div class="mb-0.5"><span class="text-v-blue">e${e.name}</span> <span class="text-v-fg/70">[${e.v1} ${e.v2}]</span> ${e.offsetLength.toFixed(2)}</div>`;
+    }
+    edgesPane.innerHTML = ehtml;
 }
 
 // Presets dropdown entries
@@ -808,9 +836,9 @@ function initPresetsMenu(canvas: Canvas) {
             item.textContent = label;
             item.dataset.file = file;
             item.className = 'block w-full cursor-pointer text-left font-mono text-xs px-3 py-1 text-v-fg hover:bg-v-blue hover:text-v-dark';
-            item.addEventListener('click', () => {
-                disableDownloadButton();
-                void canvas.loadFile(file);
+            item.addEventListener('click', async () => {
+                const data = await fetch(DATA_DIR + file).then((r) => r.arrayBuffer())
+                canvas.loadGeometry(file, data);
             });
             presets_menu.appendChild(item);
         }
@@ -841,12 +869,12 @@ function initUploadButton(canvas: Canvas) {
         const input = document.createElement('input');
         input.type = 'file';
         input.accept = '.stl,.obj';
-        input.addEventListener('change', () => {
+        input.addEventListener('change', async () => {
             const file = input.files?.[0];
-            if (file) {
-                disableDownloadButton();
-                void canvas.loadUserFile(file);
-            }
+            if (!file) return;
+            const data = await file.arrayBuffer();
+            const name = file.name;
+            void canvas.loadGeometry(name, data);
         });
         input.click();
     });
@@ -879,6 +907,7 @@ function initConstructButton(canvas: Canvas) {
         label.textContent = IDLE_TEXT;
         button.classList.remove('opacity-70', 'pointer-events-none');
         enableDownloadButton(outputs);
+        populateInspector(outputs);
     });
 }
 
