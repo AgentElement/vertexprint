@@ -16,6 +16,9 @@ OUTER_TUBE_RADIUS = EDGE_DIAMETER/2+WALL_THICKNESS;
 
 INDEX = 0;
 
+FA=12;
+FS=1;
+
 // Openscad hangs if you don't set these lists with a flag
 vertex_figure = [];
 vertex_figure_edge = [];
@@ -231,4 +234,4 @@ module vertex_holder(index) {
     tubular_vertex_holder(vertex_figure, offsets, vertex_figure_edge, index);
 }
 
-vertex_holder();
+vertex_holder($fa=FA, $fs=FS);

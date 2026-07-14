@@ -508,6 +508,17 @@ const OPTIONS: Param[] = [
         value: 0,
         unit: 'mm',
     },
+    {
+        kind: 'select',
+        name: 'renderQuality',
+        label: 'Render quality',
+        desc: 'placeholder',
+        value: 'preview',
+        options: [
+            { value: 'preview', label: 'Preview' },
+            { value: 'final', label: 'Final' },
+        ],
+    },
 ];
 
 const TW_CLASS = {

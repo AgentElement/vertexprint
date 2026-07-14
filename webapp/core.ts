@@ -22,6 +22,7 @@ export class VertexPrintParams {
     minPrinterOverhangAngle: number;
     offsetType: string;
     manualOffset: number;
+    renderQuality: "preview" | "final";
 };
 
 export class VertexPrintOutputs {
@@ -759,6 +760,15 @@ class OpenscadArgs {
         args.push(
             `-DMIN_PRINTER_OVERHANG_ANGLE=${this.options.minPrinterOverhangAngle}`,
         );
+
+        const fparams = {
+            // fa, fs
+            "preview": [12, 2],
+            "final": [30, 0.2],
+        }
+
+        args.push(`-DFA=${fparams[this.options.renderQuality][0]}`)
+        args.push(`-DFS=${fparams[this.options.renderQuality][1]}`)
 
         args.push(`-Dindex=${vertex}`)
         // vertexFigures (std)
