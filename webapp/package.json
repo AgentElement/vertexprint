@@ -2,6 +2,7 @@
   "dependencies": {
     "@tailwindcss/cli": "^4.3.1",
     "esbuild": "^0.28.1",
+    "jszip": "^3.10.1",
     "ml-matrix": "^6.13.0",
     "tailwindcss": "^4.3.1",
     "three": "^0.184.0",
@@ -9,7 +10,7 @@
   },
   "scripts": {
     "build:openscad-wasm": "make -C openscad-wasm",
-    "build": "npm run build:openscad-wasm && esbuild app.ts --bundle --outfile=a.js --format=esm --target=es2022 --minify --tree-shaking=true --loader:.stl=file && tailwindcss -i style.css -o a.css --minify"
+    "build": "esbuild app.ts --bundle --outfile=a.js --format=esm --target=es2022 --minify --tree-shaking=true --loader:.stl=file && esbuild worker.ts --bundle --outfile=worker.js --format=esm --target=es2022 --minify --tree-shaking=true && tailwindcss -i style.css -o a.css --minify && cp openscad-wasm/build/openscad.wasm.js openscad-wasm/build/openscad.wasm ."
   },
   "devDependencies": {
     "@iconify/json": "^2.2.490",
