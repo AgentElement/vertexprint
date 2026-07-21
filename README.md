@@ -2,8 +2,9 @@
 
 ![Vertexprint Preview](https://github.com/AgentElement/vertexprint/blob/master/docs/vertexprint-hero-image.png)
 
-Vertexprint is a tool for converting meshes into 3D printable assemblies.
-The tool takes a mesh as input and generates:
+Vertexprint (https://agentelement.net/vertexprint) is a tool for converting
+meshes into 3D printable assemblies. The tool takes a mesh as input and
+generates:
 
 - **STL files for vertex holders** - printed components that hold rods in
   place.
@@ -19,10 +20,10 @@ If you use a laser cutter to cut your rods, then vertexprint also generates SVG
 files to cut rods in batches.
 
 ## Usage
-Currently, vertexprint is a bare python script that generates openscad output
-to render. I intend to rewrite it in a more serious language, and offer a GUI
-so that non-programmers can easily use it.
+Vertexprint is available as a webapp [here](https://agentelement.net/vertexprint).
+It renders all your STLs in the browser, and no data leaves the browser.
 
+You may also run it as a bare python script. See installation instructions below.
 
 ```bash
 # View all options
