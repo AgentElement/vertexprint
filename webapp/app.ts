@@ -1043,17 +1043,16 @@ function initConstructButton(canvas: Canvas) {
         }
 
         button.classList.add('opacity-70', 'pointer-events-none');
-        let dots = 0;
         label.textContent = 'Generating';
-        const timer = window.setInterval(() => {
-            dots = (dots + 1) % 4;
-            label.textContent = 'Generating' + '.'.repeat(dots);
-        }, 400);
 
-        const outputs = await vertexPrint(canvas.currentName, canvas.currentData, PARAMS);
+        const outputs = await vertexPrint(
+            canvas.currentName, canvas.currentData, PARAMS,
+            (done, total) => {
+                label.textContent = `Generating (${done}/${total})`;
+            },
+        );
         canvas.loadVertexPrintOutputs(outputs);
         canvas.loadEdges(outputs);
-        window.clearInterval(timer);
         label.textContent = IDLE_TEXT;
         button.classList.remove('opacity-70', 'pointer-events-none');
         enableDownloadButton(outputs);

@@ -39,6 +39,7 @@ export async function vertexPrint(
     name: string,
     data: ArrayBuffer,
     options: VertexPrintParams,
+    reporter?: (done: number, total: number) => void,
 ): Promise<VertexPrintOutputs> {
     const polyhedron = polyhedronFromFile(name, data, options);
     if (!polyhedron) {
@@ -51,7 +52,9 @@ export async function vertexPrint(
     for (let i = 0; i < count; i++) {
         cliArgs.push(args.toOpenscadArgs(i))
     }
-    const stls = await renderVertices(polyhedron.name, scadSource, cliArgs);
+    const stls = await renderVertices(
+        polyhedron.name, scadSource, cliArgs, reporter,
+    );
     return new VertexPrintOutputs(polyhedron, stls);
 }
 
@@ -61,10 +64,14 @@ async function renderVertices(
     name: string,
     scadSource: string,
     cliArgs: string[][],
+    reporter?: (done: number, total: number) => void,
 ): Promise<ArrayBuffer[]> {
     const count = cliArgs.length;
     const results: ArrayBuffer[] = new Array(count);
-    if (count === 0) return results;
+    if (count === 0)
+        return results;
+
+    let done = 0;
 
     const workerCount = Math.min(navigator.hardwareConcurrency || 1, count);
     const chunkSize = Math.ceil(count / workerCount);
@@ -75,7 +82,8 @@ async function renderVertices(
     for (let w = 0; w < workerCount; w++) {
         const start = w * chunkSize;
         const end = Math.min(start + chunkSize, count);
-        if (start >= end) break;
+        if (start >= end)
+            break;
 
         const worker = new Worker(workerUrl, { type: "module" });
 
@@ -92,6 +100,8 @@ async function renderVertices(
                 }
                 results[m.index] = m.buffer;
                 pending--;
+                done++;
+                reporter(done, count);
                 if (pending === 0) {
                     worker.removeEventListener("message", onMessage);
                     worker.terminate();
