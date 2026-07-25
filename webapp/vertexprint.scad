@@ -11,7 +11,7 @@ MIN_PRINTER_OVERHANG_ANGLE = 30;
 LABEL_VERTICES=false;
 TUBULAR_SUPPORTS=true;
 
-TUBE_DEPTH = ROD_INSET+WALL_THICKNESS;
+TUBE_DEPTH = ROD_INSET;
 OUTER_TUBE_RADIUS = EDGE_DIAMETER/2+WALL_THICKNESS;
 
 INDEX = 0;
@@ -156,14 +156,10 @@ module tubular_vertex_holder(vecs, offsets=[], edge_list=[], index) {
 
                     translate(half_edge_offset * v)
                     rotate(rotation)
-                    difference() {
-                        union() {
-                            cylinder(r=OUTER_TUBE_RADIUS, h=TUBE_DEPTH);
-                            translate([0, 0, -half_edge_offset])
-                            cylinder(r=OUTER_TUBE_RADIUS, h=WALL_THICKNESS+half_edge_offset);
-                        }
-                        translate([-50+(EDGE_DIAMETER+DIAMETER_TOLERANCE_FIT)/2, 0, 0])
-                        cube([100, 100, 100], center=true);
+                    union() {
+                        cylinder(r=OUTER_TUBE_RADIUS, h=TUBE_DEPTH);
+                        translate([0, 0, -half_edge_offset])
+                        cylinder(r=OUTER_TUBE_RADIUS, h=half_edge_offset);
                     }
                 }
             }
@@ -175,7 +171,7 @@ module tubular_vertex_holder(vecs, offsets=[], edge_list=[], index) {
                 union() {
                     cylinder(r=OUTER_TUBE_RADIUS, h=TUBE_DEPTH);
                     translate([0, 0, -half_edge_offset])
-                    cylinder(r=OUTER_TUBE_RADIUS, h=WALL_THICKNESS+half_edge_offset);
+                    cylinder(r=OUTER_TUBE_RADIUS, h=half_edge_offset);
                 }
                 // Add text to tube holders
                 if (LABEL_VERTICES) {
